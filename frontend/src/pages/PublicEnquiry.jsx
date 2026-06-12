@@ -21,6 +21,15 @@ const PublicEnquiry = () => {
     const [fetching, setFetching] = useState(true);
     const [error, setError] = useState('');
     const [settings, setSettings] = useState({ schoolName: 'Institute Hub', logoUrl: '', contactEmail: 'contact@institute.com', iconName: 'GraduationCap' });
+    const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const isMobile = windowWidth <= 800;
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -79,25 +88,27 @@ const PublicEnquiry = () => {
     if (submitted) {
         return (
             <div style={{ 
-                minHeight: '100vh', 
+                height: '100vh', 
                 width: '100%',
                 display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
+                overflowY: 'auto',
                 backgroundImage: `url('/login_background_1778426489803.png')`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                padding: '20px',
+                padding: isMobile ? '1rem 0.5rem' : '2rem 1rem',
+                boxSizing: 'border-box',
                 backdropFilter: 'blur(5px)'
             }}>
                 <div style={{ 
+                    margin: 'auto',
                     width: '100%', 
                     maxWidth: '500px', 
                     backgroundColor: 'white', 
-                    padding: '3rem', 
-                    borderRadius: '24px', 
+                    padding: isMobile ? '2rem 1.5rem' : '3rem', 
+                    borderRadius: isMobile ? '16px' : '24px', 
                     textAlign: 'center',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                    flexShrink: 0
                 }}>
                     <div style={{ 
                         width: '80px', 
@@ -130,32 +141,34 @@ const PublicEnquiry = () => {
 
     return (
         <div style={{ 
-            minHeight: '100vh', 
+            height: '100vh', 
             width: '100%',
             backgroundImage: `url('/login_background_1778426489803.png')`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            padding: '2rem',
+            padding: isMobile ? '1rem 0.5rem' : '2rem 1rem',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
             backdropFilter: 'blur(5px)'
         }}>
             <div style={{ 
+                margin: 'auto',
                 width: '100%', 
                 maxWidth: '1000px', 
                 display: 'grid', 
-                gridTemplateColumns: '1fr 1.2fr', 
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1.2fr', 
                 backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                borderRadius: '24px', 
+                borderRadius: isMobile ? '16px' : '24px', 
                 overflow: 'hidden',
                 boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                backdropFilter: 'blur(10px)'
+                backdropFilter: 'blur(10px)',
+                flexShrink: 0
             }}>
                 {/* Left Side: Branding */}
                 <div style={{ 
                     background: 'linear-gradient(135deg, var(--primary) 0%, #4338ca 100%)', 
-                    padding: '3rem', 
+                    padding: isMobile ? '2rem 1.5rem' : '3rem', 
                     color: 'white',
                     display: 'flex',
                     flexDirection: 'column',
@@ -167,17 +180,17 @@ const PublicEnquiry = () => {
                         <img 
                           src={settings.logoUrl} 
                           alt="Logo" 
-                          style={{ maxWidth: '120px', maxHeight: '120px', objectFit: 'contain', marginBottom: '1.5rem', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))', backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px', borderRadius: '8px' }} 
+                          style={{ maxWidth: isMobile ? '100px' : '120px', maxHeight: isMobile ? '100px' : '120px', objectFit: 'contain', marginBottom: '1.5rem', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))', backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px', borderRadius: '8px' }} 
                         />
                     ) : (() => {
                         const IconComp = LucideIcons[settings.iconName] || LucideIcons.GraduationCap;
-                        return <IconComp size={60} style={{ marginBottom: '1.5rem', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))' }} />;
+                        return <IconComp size={isMobile ? 50 : 60} style={{ marginBottom: '1.5rem', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))' }} />;
                     })()}
-                    <h1 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '1rem', letterSpacing: '-0.025em' }}>{settings.schoolName || 'Institute Hub'}</h1>
-                    <p style={{ fontSize: '1.125rem', opacity: 0.9, lineHeight: 1.6 }}>
+                    <h1 style={{ fontSize: isMobile ? '1.75rem' : '2.25rem', fontWeight: 800, marginBottom: '1rem', letterSpacing: '-0.025em' }}>{settings.schoolName || 'Institute Hub'}</h1>
+                    <p style={{ fontSize: isMobile ? '0.95rem' : '1.125rem', opacity: 0.9, lineHeight: 1.6 }}>
                         Start your journey towards academic excellence today.
                     </p>
-                    <div style={{ marginTop: '3rem', display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.875rem' }}>
+                    <div style={{ marginTop: isMobile ? '1.5rem' : '3rem', display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.875rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', opacity: 0.8 }}>
                             <Phone size={18} /> +91 98765 43210
                         </div>
@@ -188,9 +201,9 @@ const PublicEnquiry = () => {
                 </div>
 
                 {/* Right Side: Form */}
-                <div style={{ padding: '3rem', backgroundColor: 'white' }}>
+                <div style={{ padding: isMobile ? '2rem 1.5rem' : '3rem', backgroundColor: 'white' }}>
                     <div style={{ marginBottom: '2rem' }}>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <h2 style={{ fontSize: isMobile ? '1.35rem' : '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <BookOpen size={24} color="var(--primary)" /> Admission Enquiry
                         </h2>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Fill in your details and our counselor will reach out.</p>
@@ -199,7 +212,7 @@ const PublicEnquiry = () => {
                     {error && <div style={{ padding: '1rem', backgroundColor: '#FEE2E2', color: '#991B1B', borderRadius: '12px', marginBottom: '1.5rem', fontSize: '0.875rem', border: '1px solid #FCA5A5' }}>{error}</div>}
 
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
                             <div className="form-group">
                                 <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Full Name</label>
                                 <input 
@@ -235,7 +248,7 @@ const PublicEnquiry = () => {
                             />
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
                             <div className="form-group">
                                 <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Standard</label>
                                 <select 
@@ -310,9 +323,12 @@ const PublicEnquiry = () => {
                             {loading ? 'Submitting...' : <><Send size={20} /> Submit Enquiry</>}
                         </button>
                     </form>
+                    
+                    <div style={{ textAlign: 'center', marginTop: '2rem', fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.7 }}>
+                        &copy; {new Date().getFullYear()} {settings.schoolName || 'Institute Hub'}. All rights reserved.
+                    </div>
                 </div>
             </div>
-            <p style={{ position: 'absolute', bottom: '2rem', color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem' }}>&copy; {new Date().getFullYear()} {settings.schoolName || 'Institute Hub'}. All rights reserved.</p>
         </div>
     );
 };
