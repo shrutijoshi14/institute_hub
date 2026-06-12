@@ -116,8 +116,7 @@ const Register = () => {
           borderRadius: isMobile ? '16px' : '24px', 
           textAlign: 'center',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          marginTop: isMobile ? '1rem' : 'auto',
-          marginBottom: isMobile ? '1rem' : 'auto'
+          flexShrink: 0
         }}>
           <div style={{ backgroundColor: '#DBEAFE', color: 'var(--primary)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
             <CheckCircle size={40} />
@@ -163,8 +162,7 @@ const Register = () => {
         overflow: 'hidden',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         backdropFilter: 'blur(10px)',
-        marginTop: isMobile ? '1rem' : 'auto',
-        marginBottom: isMobile ? '1rem' : 'auto'
+        flexShrink: 0
       }}>
         {/* Left Side: Branding */}
         <div style={{ 

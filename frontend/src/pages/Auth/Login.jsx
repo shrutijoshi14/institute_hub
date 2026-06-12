@@ -84,8 +84,7 @@ const Login = () => {
         overflow: 'hidden',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         backdropFilter: 'blur(10px)',
-        marginTop: isMobile ? '1rem' : 'auto',
-        marginBottom: isMobile ? '1rem' : 'auto'
+        flexShrink: 0
       }}>
         {/* Left Side: Branding */}
         <div style={{ 
