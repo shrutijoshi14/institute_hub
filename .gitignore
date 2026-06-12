@@ -66,3 +66,6 @@ web_modules/
 !.yarn/versions
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Legacy code
+legacy_code/
