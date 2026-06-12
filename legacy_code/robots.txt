@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /registration.html
+
+Sitemap: https://ambitiontutorials.in/sitemap.xml
