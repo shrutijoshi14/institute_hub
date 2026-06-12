@@ -103,3 +103,26 @@ Use this option if you want to deploy the services separately or customize detai
 3. Because Sequelize is configured to auto-sync, it will automatically populate your Supabase database schema on startup:
    - If tables do not exist, Sequelize's `sync()` creates them.
    - If you want to insert the default role settings and sample datasets, run the seed script locally pointing to your Supabase URL (e.g., `DATABASE_URL=postgresql://... node seed.js`).
+
+---
+
+## ⚡ Automated & One-Command Deployments
+
+Once your services are deployed under the Render Blueprint, you have two options to manage updates:
+
+### Method A: Git Push (Auto-Deploy - Recommended)
+Since your Render Blueprint is linked to GitHub, any push to the branch automatically deploys both services:
+```bash
+git push
+```
+*(Render will build, verify health checks, and swap traffic with zero downtime).*
+
+### Method B: Single Terminal Command (API Deploy Hook)
+If you want to trigger a deployment from your local command line without pushing code (or to force a redeploy):
+1. Go to your **Render Dashboard** -> Select your **Backend** service.
+2. In the **Settings** menu, scroll down to the **Deploy Hook** section.
+3. Copy the unique URL provided by Render (e.g. `https://api.render.com/deploy/srv-xxxxx?key=yyyyy`).
+4. To trigger a redeployment of the whole stack in one command from your terminal, run:
+   ```bash
+   curl -I "https://api.render.com/deploy/srv-xxxxx?key=yyyyy"
+   ```
