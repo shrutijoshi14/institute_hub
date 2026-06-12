@@ -29,6 +29,15 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [settings, setSettings] = useState({ schoolName: 'Institute Hub', logoUrl: '', iconName: 'GraduationCap' });
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth <= 800;
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -88,24 +97,27 @@ const Register = () => {
   if (isSuccess) {
     return (
       <div style={{ 
-        minHeight: '100vh', 
+        height: '100vh', 
         width: '100%',
         display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
+        overflowY: 'auto',
         backgroundImage: `url('/login_background_1778426489803.png')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        padding: '2rem'
+        padding: isMobile ? '1rem 0.5rem' : '2rem 1rem',
+        boxSizing: 'border-box'
       }}>
         <div style={{ 
+          margin: 'auto',
           width: '100%', 
           maxWidth: '500px', 
           backgroundColor: 'white', 
-          padding: '3rem', 
-          borderRadius: '24px', 
+          padding: isMobile ? '2rem 1.5rem' : '3rem', 
+          borderRadius: isMobile ? '16px' : '24px', 
           textAlign: 'center',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          marginTop: isMobile ? '1rem' : 'auto',
+          marginBottom: isMobile ? '1rem' : 'auto'
         }}>
           <div style={{ backgroundColor: '#DBEAFE', color: 'var(--primary)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
             <CheckCircle size={40} />
@@ -130,31 +142,34 @@ const Register = () => {
 
   return (
     <div style={{ 
-      minHeight: '100vh', 
+      height: '100vh', 
       width: '100%',
       display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
+      overflowY: 'auto',
       backgroundImage: `url('/login_background_1778426489803.png')`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
-      padding: '2rem'
+      padding: isMobile ? '1rem 0.5rem' : '2rem 1rem',
+      boxSizing: 'border-box'
     }}>
       <div style={{ 
+        margin: 'auto',
         width: '100%', 
         maxWidth: '900px', 
         display: 'grid', 
-        gridTemplateColumns: '1.2fr 1fr', 
+        gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', 
         backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-        borderRadius: '24px', 
+        borderRadius: isMobile ? '16px' : '24px', 
         overflow: 'hidden',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        backdropFilter: 'blur(10px)'
+        backdropFilter: 'blur(10px)',
+        marginTop: isMobile ? '1rem' : 'auto',
+        marginBottom: isMobile ? '1rem' : 'auto'
       }}>
         {/* Left Side: Branding */}
         <div style={{ 
           background: 'linear-gradient(135deg, var(--primary) 0%, #4338ca 100%)', 
-          padding: '3rem', 
+          padding: isMobile ? '2rem 1.5rem' : '3rem', 
           color: 'white',
           display: 'flex',
           flexDirection: 'column',
@@ -162,28 +177,28 @@ const Register = () => {
           alignItems: 'center',
           textAlign: 'center'
         }}>
-          <div style={{ marginBottom: '2rem', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ marginBottom: isMobile ? '1rem' : '2rem', height: isMobile ? '120px' : '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {settings.logoUrl && settings.logoUrl.startsWith('http') ? (
                <img 
                  src={settings.logoUrl} 
                  alt="Logo" 
-                 style={{ maxWidth: '180px', maxHeight: '180px', objectFit: 'contain', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))', backgroundColor: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '12px' }} 
+                 style={{ maxWidth: isMobile ? '120px' : '180px', maxHeight: isMobile ? '120px' : '180px', objectFit: 'contain', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))', backgroundColor: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '12px' }} 
                />
             ) : (() => {
                const IconComp = LucideIcons[settings.iconName] || LucideIcons.GraduationCap;
-               return <IconComp size={90} color="white" style={{ filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))' }} />;
+               return <IconComp size={isMobile ? 60 : 90} color="white" style={{ filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))' }} />;
             })()}
           </div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '1rem', letterSpacing: '-0.025em' }}>Join {settings.schoolName || 'Institute Hub'}</h1>
-          <p style={{ fontSize: '1.125rem', opacity: 0.9, lineHeight: 1.6, maxWidth: '300px' }}>
+          <h1 style={{ fontSize: isMobile ? '1.75rem' : '2.5rem', fontWeight: 800, marginBottom: '1rem', letterSpacing: '-0.025em' }}>Join {settings.schoolName || 'Institute Hub'}</h1>
+          <p style={{ fontSize: isMobile ? '0.95rem' : '1.125rem', opacity: 0.9, lineHeight: 1.6, maxWidth: '300px' }}>
             Unlock your potential with our world-class educational portal.
           </p>
         </div>
 
         {/* Right Side: Form */}
-        <div style={{ padding: '3rem', backgroundColor: 'white' }}>
-          <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Admission Request</h2>
+        <div style={{ padding: isMobile ? '2rem 1.5rem' : '3rem', backgroundColor: 'white' }}>
+          <div style={{ marginBottom: isMobile ? '1.5rem' : '2rem' }}>
+            <h2 style={{ fontSize: isMobile ? '1.35rem' : '1.5rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Admission Request</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Submit your details to start your student journey.</p>
           </div>
 
@@ -250,7 +265,7 @@ const Register = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Standard / Class</label>
                 <select 
@@ -300,7 +315,7 @@ const Register = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Parent/Guardian Name</label>
                 <input 
