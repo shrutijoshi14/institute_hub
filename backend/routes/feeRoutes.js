@@ -14,11 +14,18 @@ router.get('/stats', async (req, res) => {
         // Sum of all payments
         const totalRevenue = await FeePayment.sum('amount_paid') || 0;
         
-        // Revenue by month
-        const monthlyStats = await sequelize.query(
-            "SELECT MONTHNAME(payment_date) as month, SUM(amount_paid) as total FROM fee_payments GROUP BY month ORDER BY FIELD(month, 'January','February','March','April','May','June','July','August','September','October','November','December')",
-            { type: sequelize.QueryTypes.SELECT }
-        );
+        // Revenue by month (Dialect-aware query for MySQL & PostgreSQL compatibility)
+        const isPostgres = sequelize.getDialect() === 'postgres';
+        const monthlyQuery = isPostgres
+            ? `
+                SELECT TRIM(to_char(payment_date, 'Month')) as month, SUM(amount_paid) as total 
+                FROM fee_payments 
+                GROUP BY month, EXTRACT(MONTH FROM payment_date) 
+                ORDER BY EXTRACT(MONTH FROM payment_date)
+              `
+            : "SELECT MONTHNAME(payment_date) as month, SUM(amount_paid) as total FROM fee_payments GROUP BY month ORDER BY FIELD(month, 'January','February','March','April','May','June','July','August','September','October','November','December')";
+        
+        const monthlyStats = await sequelize.query(monthlyQuery, { type: sequelize.QueryTypes.SELECT });
 
         // Pending Fees Calculation
         // Formula: Sum of fees for all enrollments - total payments
