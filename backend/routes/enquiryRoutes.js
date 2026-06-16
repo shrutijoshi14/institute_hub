@@ -75,7 +75,11 @@ router.put('/:id', async (req, res) => {
         if (!enquiry) return res.status(404).json({ msg: 'Enquiry not found' });
         
         const { name, email, phone, class_range, board, exam_target, message, status, lost_reason, parent_name, parent_phone, address, dob, blood_group } = req.body;
-        await enquiry.update({ name, email, phone, class_range, board, exam_target, message, status, lost_reason, parent_name, parent_phone, address, dob, blood_group });
+        await enquiry.update({ 
+            name, email, phone, class_range, board, exam_target, message, status, lost_reason, parent_name, parent_phone, address, 
+            dob: dob || null, 
+            blood_group 
+        });
         res.json({ msg: 'Enquiry updated' });
     } catch (err) {
         res.status(500).send('Server Error');

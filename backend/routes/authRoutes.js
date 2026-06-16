@@ -143,7 +143,7 @@ router.post('/users', async (req, res) => {
             parent_name,
             parent_phone,
             address,
-            dob,
+            dob: dob || null,
             blood_group,
             status: 'active'
         });
@@ -229,7 +229,12 @@ router.put('/users/:id', async (req, res) => {
     try {
         const user = await User.findByPk(req.params.id);
         if (!user) return res.status(404).json({ msg: 'User not found' });
-        await user.update(req.body);
+        
+        const updateData = { ...req.body };
+        if (updateData.dob === '') {
+            updateData.dob = null;
+        }
+        await user.update(updateData);
 
         if (user.role === 'student' && req.body.batch_id) {
             const { batch_id, fee_plan, total_installments, token_amount } = req.body;
