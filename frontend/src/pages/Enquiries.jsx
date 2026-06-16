@@ -13,6 +13,7 @@ const Enquiries = () => {
   const [msg, setMsg] = useState('');
   const [convertError, setConvertError] = useState('');
   const [formError, setFormError] = useState('');
+  const [settings, setSettings] = useState(null);
 
   const [showModal, setShowModal] = useState(false);
   const [showConvertModal, setShowConvertModal] = useState(false);
@@ -60,14 +61,16 @@ const Enquiries = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [enqRes, batchRes, courseRes] = await Promise.all([
+      const [enqRes, batchRes, courseRes, settingsRes] = await Promise.all([
         axios.get('http://localhost:5000/api/enquiry').catch(() => ({ data: [] })),
         axios.get('http://localhost:5000/api/batches').catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/courses').catch(() => ({ data: [] }))
+        axios.get('http://localhost:5000/api/courses').catch(() => ({ data: [] })),
+        axios.get('http://localhost:5000/api/settings').catch(() => ({ data: null }))
       ]);
       setEnquiries(enqRes.data);
       setBatches(batchRes.data);
       setCourses(courseRes.data);
+      setSettings(settingsRes.data);
       if (batchRes.data.length > 0) {
         setConvertData(prev => ({ ...prev, batch_id: batchRes.data[0].id }));
       }
@@ -87,7 +90,9 @@ const Enquiries = () => {
     const currentBoard = convertData.board || (convertingEnq ? convertingEnq.board : '');
     let fees = 50000;
 
-    if (currentStd && currentBoard) {
+    if (settings && settings.standardFees && settings.standardFees[currentStd] !== undefined) {
+      fees = parseFloat(settings.standardFees[currentStd]) || 50000;
+    } else if (currentStd && currentBoard) {
       const matchedCourse = courses.find(c => 
         String(c.class_range).toLowerCase() === String(currentStd).toLowerCase() && 
         String(c.board).toLowerCase() === String(currentBoard).toLowerCase()
@@ -103,7 +108,7 @@ const Enquiries = () => {
       const instCount = parseInt(convertData.installments) || 4;
       setConvertData(prev => ({ ...prev, token_amount: (fees / instCount).toFixed(2), installments: instCount }));
     }
-  }, [convertData.standard, convertData.board, convertData.fee_plan, convertData.installments, courses, convertingEnq]);
+  }, [convertData.standard, convertData.board, convertData.fee_plan, convertData.installments, courses, convertingEnq, settings]);
 
   const openForm = (enq = null) => {
     if (enq) {
@@ -381,7 +386,7 @@ const Enquiries = () => {
                    <tr key={enq.id}>
                     <td style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
                       {enq.name}<br/>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>{enq.phone} | {enq.email || 'No Email'}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>{enq.phone} | <span className="email-wrap">{enq.email || 'No Email'}</span></span>
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: 500 }}>{enq.class_range}</span><br/>

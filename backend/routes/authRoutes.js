@@ -160,7 +160,8 @@ router.post('/users', async (req, res) => {
                         order: [['fees', 'DESC']]
                     });
                     const courseId = matchedCourse ? matchedCourse.id : null;
-                    const totalFees = matchedCourse ? parseFloat(matchedCourse.fees) : 50000;
+                    const { getStandardFee } = require('../utils/feeHelper');
+                    const totalFees = getStandardFee(batch.standard, matchedCourse);
                     const plan = fee_plan || 'One-time';
                     const installments = plan === 'EMI' ? (parseInt(total_installments) || 4) : 1;
                     const instAmount = (totalFees - parseFloat(token_amount || 0)) / installments;
@@ -247,7 +248,8 @@ router.put('/users/:id', async (req, res) => {
                     order: [['fees', 'DESC']]
                 });
                 const courseId = matchedCourse ? matchedCourse.id : null;
-                const totalFees = matchedCourse ? parseFloat(matchedCourse.fees) : 50000;
+                const { getStandardFee } = require('../utils/feeHelper');
+                const totalFees = getStandardFee(batch.standard, matchedCourse);
                 const plan = fee_plan || 'One-time';
                 const installments = plan === 'EMI' ? (parseInt(total_installments) || 4) : 1;
 

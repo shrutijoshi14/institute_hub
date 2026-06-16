@@ -164,7 +164,8 @@ router.post('/convert/:id', async (req, res) => {
         });
         
         const courseId = matchedCourse ? matchedCourse.id : null;
-        const totalFees = matchedCourse ? parseFloat(matchedCourse.fees) : 50000;
+        const { getStandardFee } = require('../utils/feeHelper');
+        const totalFees = getStandardFee(batch.standard, matchedCourse);
         const plan = fee_plan || 'One-time';
         const installments = customInstallments || (plan === 'EMI' ? 4 : 1);
         const instAmount = (totalFees - parseFloat(token_amount || 0)) / installments;

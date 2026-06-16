@@ -1,0 +1,17 @@
+{
+    "schoolName": "Vasudev Classes",
+    "logoUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTp6_MRevJUwA2Ios69DSa7pli0hqdyBbaTd3XOFUiVFQ&s=10",
+    "contactEmail": "vasudev@gmail.com",
+    "iconName": "GraduationCap",
+    "standardFees": {
+        "5th": 25000,
+        "6th": 28000,
+        "7th": 30000,
+        "8th": 32000,
+        "9th": 35000,
+        "SSC (10th)": 60000,
+        "11th": 40000,
+        "HSC (12th)": 50000,
+        "Diploma / Vocational": 44999
+    }
+}

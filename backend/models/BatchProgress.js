@@ -35,6 +35,10 @@ const BatchProgress = sequelize.define('BatchProgress', {
     class_time: {
         type: DataTypes.STRING,
         allowNull: true
+    },
+    class_date: {
+        type: DataTypes.DATEONLY,
+        allowNull: true
     }
 }, {
     tableName: 'batch_progress',

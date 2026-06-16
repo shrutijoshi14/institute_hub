@@ -107,7 +107,7 @@ const UserManagement = () => {
                          </div>
                          <div>
                             <div style={{ fontWeight: 600 }}>{user.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{user.email} | @{user.username || 'no-username'}</div>
+                            <div className="email-wrap" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{user.email} | @{user.username || 'no-username'}</div>
                          </div>
                       </div>
                     </td>

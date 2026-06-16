@@ -135,6 +135,15 @@ const connectDB = async () => {
             } catch (err) {
                 console.log('Notice: target_batch column check details:', err.message);
             }
+
+            try {
+                await sequelize.query(`
+                    ALTER TABLE batch_progress ADD COLUMN class_date DATE DEFAULT NULL
+                `);
+                console.log('Notice: batch_progress class_date column added.');
+            } catch (err) {
+                console.log('Notice: batch_progress class_date column check details:', err.message);
+            }
         } else if (isPostgres) {
             console.log('PostgreSQL/Supabase detected. Skipping MySQL-specific ALTER TABLE queries. Sequelize sync has already created/aligned columns.');
         }

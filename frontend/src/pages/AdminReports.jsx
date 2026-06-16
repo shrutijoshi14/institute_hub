@@ -92,14 +92,14 @@ const AdminReports = () => {
       doc.text('Financial Revenue & Dues Report', 20, 45);
 
       const tableData = [
-        ['Total Expected Revenue', `$${finance.totalExpected.toLocaleString()}`],
-        ['Total Collected Amount', `$${finance.totalCollected.toLocaleString()}`],
-        ['Outstanding Dues', `$${finance.totalPending.toLocaleString()}`]
+        ['Total Expected Revenue', `₹${finance.totalExpected.toLocaleString()}`],
+        ['Total Collected Amount', `₹${finance.totalCollected.toLocaleString()}`],
+        ['Outstanding Dues', `₹${finance.totalPending.toLocaleString()}`]
       ];
 
       doc.autoTable({
         startY: 55,
-        head: [['Account Description', 'Amount ($)']],
+        head: [['Account Description', 'Amount (INR)']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [16, 185, 129] }
@@ -242,17 +242,22 @@ const AdminReports = () => {
               </thead>
               <tbody>
                 {reports.performanceReport.map(st => {
-                  const avg = Math.round(st.average_marks);
-                  const standing = avg >= 90 ? 'Excellent' : avg >= 75 ? 'Good' : avg >= 50 ? 'Average' : 'Needs Focus';
+                  const hasTakenTest = st.average_marks !== null && st.average_marks !== undefined;
+                  const avg = hasTakenTest ? Math.round(st.average_marks) : null;
+                  const standing = hasTakenTest 
+                    ? (avg >= 90 ? 'Excellent' : avg >= 75 ? 'Good' : avg >= 50 ? 'Average' : 'Needs Focus')
+                    : 'Not taken test';
                   return (
                     <tr key={st.student_id}>
                       <td style={{ fontWeight: 600 }}>{st.student_name}</td>
-                      <td style={{ fontWeight: 700, color: '#3B82F6' }}>{avg}%</td>
+                      <td style={{ fontWeight: 700, color: hasTakenTest ? '#3B82F6' : '#64748B' }}>
+                        {hasTakenTest ? `${avg}%` : 'Not taken test / assignment'}
+                      </td>
                       <td>
                         <span style={{ 
                           padding: '0.35rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700,
-                          background: standing === 'Excellent' ? '#D1FAE5' : standing === 'Good' ? '#DBEAFE' : standing === 'Average' ? '#FEF3C7' : '#FEE2E2',
-                          color: standing === 'Excellent' ? '#065F46' : standing === 'Good' ? '#1E40AF' : standing === 'Average' ? '#92400E' : '#991B1B'
+                          background: !hasTakenTest ? '#F1F5F9' : standing === 'Excellent' ? '#D1FAE5' : standing === 'Good' ? '#DBEAFE' : standing === 'Average' ? '#FEF3C7' : '#FEE2E2',
+                          color: !hasTakenTest ? '#64748B' : standing === 'Excellent' ? '#065F46' : standing === 'Good' ? '#1E40AF' : standing === 'Average' ? '#92400E' : '#991B1B'
                         }}>
                           {standing}
                         </span>

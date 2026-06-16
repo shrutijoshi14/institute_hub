@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Save, Upload } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
+import { STANDARDS } from '../utils/constants';
 
 const Settings = () => {
   const [settings, setSettings] = useState({
     schoolName: '',
     logoUrl: '',
     contactEmail: '',
-    iconName: ''
+    iconName: '',
+    standardFees: {}
   });
   const [msg, setMsg] = useState('');
 
@@ -114,25 +116,56 @@ const Settings = () => {
           </form>
         </div>
 
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#F8FAFC', padding: '2rem' }}>
-          <h3 style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '1rem', fontWeight: 600 }}>Current Logo Preview</h3>
-          {settings.logoUrl && settings.logoUrl.startsWith('http') ? (
-            <img src={settings.logoUrl} alt="Institution Logo" style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'contain' }} />
-          ) : (() => {
-            const IconComp = LucideIcons[settings.iconName] || LucideIcons.GraduationCap;
-            return (
-              <div style={{ width: '150px', height: '150px', borderRadius: 'var(--radius-md)', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
-                <IconComp size={64} />
-              </div>
-            );
-          })()}
-          <h2 style={{ marginTop: '1.5rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {(() => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#F8FAFC', padding: '2rem' }}>
+            <h3 style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '1rem', fontWeight: 600 }}>Current Logo Preview</h3>
+            {settings.logoUrl && settings.logoUrl.startsWith('http') ? (
+              <img src={settings.logoUrl} alt="Institution Logo" style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'contain' }} />
+            ) : (() => {
               const IconComp = LucideIcons[settings.iconName] || LucideIcons.GraduationCap;
-              return <IconComp size={24} style={{ color: 'var(--primary)' }} />;
+              return (
+                <div style={{ width: '150px', height: '150px', borderRadius: 'var(--radius-md)', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+                  <IconComp size={64} />
+                </div>
+              );
             })()}
-            {settings.schoolName || 'Institute Hub'}
-          </h2>
+            <h2 style={{ marginTop: '1.5rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {(() => {
+                const IconComp = LucideIcons[settings.iconName] || LucideIcons.GraduationCap;
+                return <IconComp size={24} style={{ color: 'var(--primary)' }} />;
+              })()}
+              {settings.schoolName || 'Institute Hub'}
+            </h2>
+          </div>
+
+          <div className="card">
+            <h2>Standard-wise Tuition Fees</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+               Set the tuition fees dynamically for each standard. Updates will immediately reflect when processing new student conversions and queue registrations.
+            </p>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+               {STANDARDS.map(std => (
+                 <div key={std} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                   <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#334155' }}>{std} Standard</span>
+                   <div style={{ position: 'relative', width: '160px' }}>
+                     <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#64748B', fontWeight: 600 }}>₹</span>
+                     <input 
+                       type="number"
+                       value={settings.standardFees?.[std] || ''}
+                       onChange={(e) => {
+                         const updatedFees = { ...settings.standardFees, [std]: parseFloat(e.target.value) || 0 };
+                         setSettings({ ...settings, standardFees: updatedFees });
+                       }}
+                       style={{ width: '100%', padding: '0.6rem 0.6rem 0.6rem 1.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.95rem', fontWeight: 500 }}
+                     />
+                   </div>
+                 </div>
+               ))}
+               <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end', marginTop: '1rem', padding: '0.75rem 1.5rem' }}>
+                 <Save size={18} style={{ marginRight: '0.5rem' }} /> Save Tuition Fees
+               </button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

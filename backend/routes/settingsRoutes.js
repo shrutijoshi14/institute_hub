@@ -5,13 +5,39 @@ const path = require('path');
 
 const SETTINGS_FILE = path.join(__dirname, '../config/settings.json');
 
+const DEFAULT_STANDARD_FEES = {
+    "5th": 25000,
+    "6th": 28000,
+    "7th": 30000,
+    "8th": 32000,
+    "9th": 35000,
+    "SSC (10th)": 60000,
+    "11th": 40000,
+    "HSC (12th)": 50000,
+    "Diploma / Vocational": 45000
+};
+
 // Helper to read settings
 const readSettings = () => {
+    let settings = { 
+        schoolName: 'Institute Hub', 
+        logoUrl: '', 
+        contactEmail: 'info@institute.com', 
+        iconName: 'GraduationCap',
+        standardFees: DEFAULT_STANDARD_FEES 
+    };
     if (fs.existsSync(SETTINGS_FILE)) {
-        const data = fs.readFileSync(SETTINGS_FILE);
-        return JSON.parse(data);
+        try {
+            const data = fs.readFileSync(SETTINGS_FILE);
+            settings = { ...settings, ...JSON.parse(data) };
+        } catch (e) {
+            console.error('Error parsing settings:', e);
+        }
     }
-    return { schoolName: 'Institute Hub', logoUrl: '', contactEmail: 'info@institute.com', iconName: 'GraduationCap' };
+    if (!settings.standardFees) {
+        settings.standardFees = DEFAULT_STANDARD_FEES;
+    }
+    return settings;
 };
 
 // Helper to write settings
@@ -35,7 +61,7 @@ router.get('/', (req, res) => {
 // @desc    Update School Settings
 router.put('/', (req, res) => {
     try {
-        const { schoolName, logoUrl, contactEmail, iconName } = req.body;
+        const { schoolName, logoUrl, contactEmail, iconName, standardFees } = req.body;
         const currentSettings = readSettings();
         
         const newSettings = {
@@ -43,7 +69,8 @@ router.put('/', (req, res) => {
             schoolName: schoolName !== undefined ? schoolName : currentSettings.schoolName,
             logoUrl: logoUrl !== undefined ? logoUrl : currentSettings.logoUrl,
             contactEmail: contactEmail !== undefined ? contactEmail : currentSettings.contactEmail,
-            iconName: iconName !== undefined ? iconName : currentSettings.iconName
+            iconName: iconName !== undefined ? iconName : currentSettings.iconName,
+            standardFees: standardFees !== undefined ? standardFees : currentSettings.standardFees
         };
 
         writeSettings(newSettings);

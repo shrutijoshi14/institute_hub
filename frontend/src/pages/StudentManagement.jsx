@@ -196,7 +196,7 @@ const StudentManagement = () => {
                       {student.standard || student.Enrollments?.[0]?.Course?.class_range || 'Unassigned'}
                     </span>
                   </td>
-                  <td>{student.email}</td>
+                  <td className="email-cell">{student.email}</td>
                   <td>{student.phone}</td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>

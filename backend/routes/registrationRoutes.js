@@ -97,7 +97,8 @@ router.post('/', async (req, res) => {
 
         const { token_amount } = req.body;
         const course = await Course.findByPk(courseId);
-        const totalFees = parseFloat(course.fees || 0);
+        const { getStandardFee } = require('../utils/feeHelper');
+        const totalFees = getStandardFee(className, course);
         const plan = fee_plan || 'One-time';
         const installments = plan === 'EMI' ? (parseInt(total_installments) || 4) : 1;
         const instAmount = (totalFees - parseFloat(token_amount || 0)) / installments;

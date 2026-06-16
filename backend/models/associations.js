@@ -59,6 +59,11 @@ BatchProgress.belongsTo(Batch, { foreignKey: 'batch_id' });
 Course.hasMany(BatchProgress, { foreignKey: 'course_id' });
 BatchProgress.belongsTo(Course, { foreignKey: 'course_id' });
 
+// BatchProgress & Attendance
+BatchProgress.hasMany(Attendance, { foreignKey: 'batch_progress_id', onDelete: 'CASCADE' });
+Attendance.belongsTo(BatchProgress, { foreignKey: 'batch_progress_id' });
+
+
 // New Associations
 // Branch & User
 Branch.hasMany(User, { foreignKey: 'branch_id' });

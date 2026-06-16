@@ -451,6 +451,7 @@ th {
   font-weight: 600;
   letter-spacing: 0.05em;
   border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
 }
 
 td {
@@ -458,6 +459,15 @@ td {
   border-bottom: 1px solid var(--border-color);
   color: var(--text-primary);
   font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+/* Allow emails/mail ids to wrap cleanly */
+.email-wrap,
+table td.email,
+table td.email-cell {
+  white-space: normal !important;
+  word-break: break-all !important;
 }
 
 tr:last-child td {

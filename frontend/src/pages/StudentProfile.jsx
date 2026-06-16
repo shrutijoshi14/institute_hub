@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 const StudentProfile = () => {
   const { user, role } = useAuth();
   const [profile, setProfile] = useState(null);
+  const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -21,8 +22,14 @@ const StudentProfile = () => {
         setLoading(false);
         return;
       }
-      const res = await axios.get(`http://localhost:5000/api/auth/student-profile/${studentId}`);
-      setProfile(res.data);
+      const [profileRes, settingsRes] = await Promise.all([
+        axios.get(`http://localhost:5000/api/auth/student-profile/${studentId}`),
+        axios.get('http://localhost:5000/api/settings').catch(() => ({ data: null }))
+      ]);
+      setProfile(profileRes.data);
+      if (settingsRes.data) {
+        setSettings(settingsRes.data);
+      }
     } catch (err) {
       console.error(err);
       setError('Failed to load profile details. Please try again.');
@@ -63,7 +70,7 @@ const StudentProfile = () => {
   const payments = profile.FeePayments || [];
 
   // Calculations
-  const totalFees = parseFloat(course.fees) || 50000;
+  const totalFees = parseFloat(course.fees) || parseFloat(settings?.standardFees?.[profile.standard]) || 50000;
   const totalPaid = payments.reduce((acc, curr) => acc + parseFloat(curr.amount_paid), 0);
   const totalPending = Math.max(0, totalFees - totalPaid);
   const paidPercent = Math.min(100, Math.round((totalPaid / totalFees) * 100));

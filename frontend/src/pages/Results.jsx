@@ -277,7 +277,7 @@ const Results = () => {
                     <td>{new Date(r.exam_date).toLocaleDateString('en-GB')}</td>
                   </tr>
                 )
-              }) : <tr><td colSpan="4" style={{ textAlign: 'center', padding: '1rem' }}>No results available for your account.</td></tr>}
+              }) : <tr><td colSpan="4" style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)' }}>No results available (Not taken test / assignment).</td></tr>}
             </tbody>
           </table>
         </div>

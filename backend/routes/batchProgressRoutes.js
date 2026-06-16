@@ -9,7 +9,12 @@ router.get('/:batch_id', async (req, res) => {
         const { batch_id } = req.params;
         const progress = await BatchProgress.findAll({
             where: { batch_id },
-            include: [{ model: Course, attributes: ['id', 'title', 'subject', 'description'] }]
+            include: [{ model: Course, attributes: ['id', 'title', 'subject', 'description'] }],
+            order: [
+                ['class_date', 'DESC'],
+                ['class_time', 'DESC'],
+                ['id', 'DESC']
+            ]
         });
         res.json(progress);
     } catch (err) {
@@ -61,6 +66,78 @@ router.post('/', async (req, res) => {
         res.status(500).send('Server Error');
     }
 });
+
+// @route   POST /api/progress/schedule
+// @desc    Schedule a class session
+router.post('/schedule', async (req, res) => {
+    try {
+        const { batch_id, course_id, class_date, class_time, duration_hours, duration_minutes, remarks } = req.body;
+        
+        if (!batch_id || !course_id || !class_date) {
+            return res.status(400).json({ msg: 'batch_id, course_id, and class_date are required' });
+        }
+
+        const progress = await BatchProgress.create({
+            batch_id,
+            course_id,
+            class_date,
+            class_time: class_time || '10:00 AM',
+            duration_hours: duration_hours !== undefined ? duration_hours : 1,
+            duration_minutes: duration_minutes !== undefined ? duration_minutes : 0,
+            status: 'Pending',
+            remarks: remarks || ''
+        });
+
+        const fullProgress = await BatchProgress.findByPk(progress.id, {
+            include: [{ model: Course, attributes: ['id', 'title', 'subject', 'description'] }]
+        });
+
+        res.status(201).json(fullProgress);
+    } catch (err) {
+        console.error('Schedule Class Error:', err);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   PUT /api/progress/:id
+// @desc    Update a specific scheduled class progress record
+router.put('/:id', async (req, res) => {
+    try {
+        const progress = await BatchProgress.findByPk(req.params.id);
+        if (!progress) {
+            return res.status(404).json({ msg: 'Class session not found' });
+        }
+
+        await progress.update(req.body);
+
+        const updated = await BatchProgress.findByPk(progress.id, {
+            include: [{ model: Course, attributes: ['id', 'title', 'subject', 'description'] }]
+        });
+
+        res.json(updated);
+    } catch (err) {
+        console.error('Update Class Session Error:', err);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   DELETE /api/progress/:id
+// @desc    Delete a specific scheduled class progress record
+router.delete('/:id', async (req, res) => {
+    try {
+        const progress = await BatchProgress.findByPk(req.params.id);
+        if (!progress) {
+            return res.status(404).json({ msg: 'Class session not found' });
+        }
+
+        await progress.destroy();
+        res.json({ msg: 'Class session deleted successfully' });
+    } catch (err) {
+        console.error('Delete Class Session Error:', err);
+        res.status(500).send('Server Error');
+    }
+});
+
 
 // @route   GET /api/progress/student/:student_id
 // @desc    Get progress for all batches a student is in

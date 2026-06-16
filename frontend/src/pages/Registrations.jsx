@@ -7,6 +7,7 @@ import DeleteModal from '../components/DeleteModal';
 const Registrations = () => {
   const [registrations, setRegistrations] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [settings, setSettings] = useState(null);
   const [msg, setMsg] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStandard, setSelectedStandard] = useState('All');
@@ -36,12 +37,14 @@ const Registrations = () => {
 
   const fetchRegs = async () => {
     try {
-      const [regRes, courseRes] = await Promise.all([
+      const [regRes, courseRes, settingsRes] = await Promise.all([
         axios.get('http://localhost:5000/api/registration'),
-        axios.get('http://localhost:5000/api/courses').catch(() => ({ data: [] }))
+        axios.get('http://localhost:5000/api/courses').catch(() => ({ data: [] })),
+        axios.get('http://localhost:5000/api/settings').catch(() => ({ data: null }))
       ]);
       setRegistrations(regRes.data);
       setCourses(courseRes.data);
+      setSettings(settingsRes.data);
       if (courseRes.data.length > 0) {
           setFormData(prev => ({ ...prev, course_interest: courseRes.data[0].title }));
       }
@@ -407,6 +410,10 @@ const Registrations = () => {
                     </select>
                   </div>
                 )}
+                <div style={{ gridColumn: 'span 2', fontSize: '0.875rem', color: '#0369A1', fontWeight: 600, marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #E0F2FE', paddingTop: '0.5rem' }}>
+                  <span>Standard Tuition Fee:</span>
+                  <span>₹{(settings?.standardFees?.[formData.class] || 50000).toLocaleString()}</span>
+                </div>
               </div>
 
               <div className="form-group" style={{ padding: '1rem', backgroundColor: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>

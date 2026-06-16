@@ -6,6 +6,7 @@ const Assignment = require('../models/Assignment');
 const Notice = require('../models/Notice');
 const Result = require('../models/Result');
 const Submission = require('../models/Submission');
+const BatchProgress = require('../models/BatchProgress');
 
 // Ensure tables are synced (for dev)
 Submission.sync();
@@ -113,7 +114,7 @@ router.get('/admin/reports', async (req, res) => {
                 u.id as student_id, 
                 u.name as student_name,
                 e.batch_id as batch_id,
-                COALESCE(AVG(r.marks_obtained), 0) as average_marks
+                AVG(r.marks_obtained) as average_marks
             FROM users u
             LEFT JOIN results r ON u.id = r.student_id
             LEFT JOIN enrollments e ON u.id = e.student_id
@@ -224,10 +225,53 @@ router.post('/notices', async (req, res) => {
 // Attendance Management
 router.post('/attendance', async (req, res) => {
     try {
-        const { student_id, date, status } = req.body;
-        const newRecord = await Attendance.create({ student_id, date, status });
-        res.status(201).json(newRecord);
+        let payload = [];
+        if (Array.isArray(req.body)) {
+            payload = req.body;
+        } else if (req.body.records && Array.isArray(req.body.records)) {
+            payload = req.body.records;
+        }
+
+        let batch_progress_id = req.body.batch_progress_id;
+        if (!batch_progress_id && payload.length > 0) {
+            batch_progress_id = payload[0].batch_progress_id;
+        }
+
+        if (batch_progress_id) {
+            const bp = await BatchProgress.findByPk(batch_progress_id);
+            if (bp && bp.status !== 'Completed') {
+                return res.status(400).json({ msg: "Attendance can only be submitted after the class is marked as Completed." });
+            }
+        }
+
+        if (payload.length > 0) {
+            // Delete existing records for these students on these dates/class sessions to avoid duplicates
+            for (const rec of payload) {
+                await Attendance.destroy({
+                    where: {
+                        student_id: rec.student_id,
+                        date: rec.date,
+                        ...(rec.batch_progress_id ? { batch_progress_id: rec.batch_progress_id } : {})
+                    }
+                });
+            }
+            const records = await Attendance.bulkCreate(payload);
+            res.status(201).json(records);
+        } else {
+            const { student_id, date, status } = req.body;
+            // Delete existing single entry first to prevent duplicate
+            await Attendance.destroy({
+                where: {
+                    student_id,
+                    date,
+                    ...(batch_progress_id ? { batch_progress_id } : {})
+                }
+            });
+            const newRecord = await Attendance.create({ student_id, date, status, batch_progress_id });
+            res.status(201).json(newRecord);
+        }
     } catch (err) {
+        console.error(err);
         res.status(500).send('Server Error');
     }
 });
@@ -364,8 +408,23 @@ router.get('/student/dashboard/:studentId', async (req, res) => {
         const attendancePerc = totalDays > 0 ? Math.round((presentDays * 100) / totalDays) : 0;
 
         // Pending Assignments (assignments in student's course)
-        // Simplified: Count assignments with no submission (placeholder logic)
-        const pendingTasks = await Assignment.count(); 
+        const Enrollment = require('../models/Enrollment');
+        const enrollObj = await Enrollment.findOne({ where: { student_id: studentId } });
+        let pendingTasks = 0;
+        if (enrollObj) {
+            const courseId = enrollObj.course_id;
+            const courseAssignments = await Assignment.findAll({ where: { course_id: courseId } });
+            const assignmentIds = courseAssignments.map(a => a.id);
+            if (assignmentIds.length > 0) {
+                const submittedCount = await Submission.count({
+                    where: {
+                        student_id: studentId,
+                        assignment_id: assignmentIds
+                    }
+                });
+                pendingTasks = Math.max(0, assignmentIds.length - submittedCount);
+            }
+        }
 
         // Registered Courses count
         const enrollment = await sequelize.query(`
@@ -376,16 +435,33 @@ router.get('/student/dashboard/:studentId', async (req, res) => {
         const latestNotice = await Notice.findOne({ order: [['created_at', 'DESC']] });
 
         // Fee stats
+        const Course = require('../models/Course');
         const enrollRec = await sequelize.query(`
-            SELECT course_id FROM enrollments WHERE student_id = ?
+            SELECT e.course_id, e.batch_id, u.standard 
+            FROM enrollments e 
+            JOIN users u ON e.student_id = u.id 
+            WHERE e.student_id = ?
         `, { replacements: [studentId], type: sequelize.QueryTypes.SELECT });
 
+        const userRec = await sequelize.query(`
+            SELECT standard FROM users WHERE id = ?
+        `, { replacements: [studentId], type: sequelize.QueryTypes.SELECT });
+        const userStandard = userRec[0]?.standard;
+
         let totalFees = 0;
-        if (enrollRec[0] && enrollRec[0].course_id) {
-            const courseRec = await sequelize.query(`
-                SELECT fees FROM courses WHERE id = ?
-            `, { replacements: [enrollRec[0].course_id], type: sequelize.QueryTypes.SELECT });
-            totalFees = parseFloat(courseRec[0]?.fees || 0);
+        if (enrollRec[0]) {
+            const row = enrollRec[0];
+            const course = row.course_id ? await Course.findByPk(row.course_id) : null;
+            if (course && parseFloat(course.fees) > 0) {
+                totalFees = parseFloat(course.fees);
+            } else {
+                const searchStandard = row.standard || userStandard || (row.batch_id ? (await sequelize.query('SELECT standard FROM batches WHERE id = ?', { replacements: [row.batch_id], type: sequelize.QueryTypes.SELECT }))[0]?.standard : null);
+                const { getStandardFee } = require('../utils/feeHelper');
+                totalFees = getStandardFee(searchStandard);
+            }
+        } else if (userStandard) {
+            const { getStandardFee } = require('../utils/feeHelper');
+            totalFees = getStandardFee(userStandard);
         }
 
         const paidRec = await sequelize.query(`
@@ -517,26 +593,38 @@ router.get('/submissions/student/:studentId', async (req, res) => {
 router.get('/admin/finance/summary', async (req, res) => {
     try {
         const { standard } = req.query;
-        let standardFilterCourse = "";
-        let standardFilterPayment = "";
+        const { getStandardFeeSqlFragment } = require('../utils/feeHelper');
+        const feeSql = getStandardFeeSqlFragment('u.standard', 'e.batch_id');
+        
+        let expectedQuery = `
+            SELECT SUM(COALESCE(NULLIF(c.fees, 0), ${feeSql})) as expected
+            FROM enrollments e
+            LEFT JOIN courses c ON e.course_id = c.id
+            LEFT JOIN users u ON e.student_id = u.id
+        `;
+        
+        let collectedQuery = `
+            SELECT SUM(fp.amount_paid) as collected
+            FROM fee_payments fp
+            LEFT JOIN users u ON fp.student_id = u.id
+        `;
         
         if (standard && standard !== 'All') {
             const escapedStandard = sequelize.escape(standard);
-            standardFilterCourse = ` WHERE c.class_range = ${escapedStandard} `;
-            standardFilterPayment = ` WHERE student_id IN (SELECT student_id FROM enrollments e JOIN courses c ON e.course_id = c.id WHERE c.class_range = ${escapedStandard}) `;
+            expectedQuery += ` WHERE COALESCE(u.standard, (SELECT standard FROM batches WHERE id = e.batch_id)) = ${escapedStandard} `;
+            collectedQuery += ` WHERE COALESCE(u.standard, (SELECT standard FROM batches b JOIN enrollments e ON b.id = e.batch_id WHERE e.student_id = u.id LIMIT 1)) = ${escapedStandard} `;
         }
-
-        const stats = await sequelize.query(`
-            SELECT 
-                (SELECT SUM(fees) FROM courses c JOIN enrollments e ON c.id = e.course_id ${standardFilterCourse}) as total_expected,
-                (SELECT SUM(amount_paid) FROM fee_payments ${standardFilterPayment}) as total_collected
-        `, { type: sequelize.QueryTypes.SELECT });
         
-        const summary = stats[0] || { total_expected: 0, total_collected: 0 };
+        const expectedRes = await sequelize.query(expectedQuery, { type: sequelize.QueryTypes.SELECT });
+        const collectedRes = await sequelize.query(collectedQuery, { type: sequelize.QueryTypes.SELECT });
+        
+        const expectedVal = parseFloat(expectedRes[0]?.expected) || 0;
+        const collectedVal = parseFloat(collectedRes[0]?.collected) || 0;
+        
         res.json({
-            totalExpected: parseFloat(summary.total_expected) || 0,
-            totalCollected: parseFloat(summary.total_collected) || 0,
-            totalPending: (parseFloat(summary.total_expected) || 0) - (parseFloat(summary.total_collected) || 0)
+            totalExpected: expectedVal,
+            totalCollected: collectedVal,
+            totalPending: expectedVal - collectedVal
         });
     } catch (err) {
         console.error(err);

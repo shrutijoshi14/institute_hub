@@ -6,6 +6,8 @@ const { sequelize } = require('../config/db');
 const Enrollment = require('../models/Enrollment');
 const Course = require('../models/Course');
 const { sendSMS } = require('../utils/sms');
+const { getStandardFee, getStandardCourseTitle, getStandardFeeSqlFragment, getStandardCourseTitleSqlFragment } = require('../utils/feeHelper');
+
 
 // @route   GET /api/fees/stats
 // @desc    Get comprehensive revenue & fee stats for admin
@@ -28,9 +30,18 @@ router.get('/stats', async (req, res) => {
         const monthlyStats = await sequelize.query(monthlyQuery, { type: sequelize.QueryTypes.SELECT });
 
         // Pending Fees Calculation
-        // Formula: Sum of fees for all enrollments - total payments
+        // Formula: Sum of fees for all enrollments (with fallback) - total payments
+        const feeSql = getStandardFeeSqlFragment('u.standard', 'e.batch_id');
         const totalExpected = await sequelize.query(
-            "SELECT SUM(c.fees) as total FROM enrollments e JOIN courses c ON e.course_id = c.id",
+            `SELECT SUM(
+                COALESCE(
+                    NULLIF(c.fees, 0),
+                    ${feeSql}
+                )
+             ) as total 
+             FROM enrollments e 
+             LEFT JOIN courses c ON e.course_id = c.id
+             LEFT JOIN users u ON e.student_id = u.id`,
             { type: sequelize.QueryTypes.SELECT }
         );
         const expected = totalExpected[0].total || 0;
@@ -73,30 +84,54 @@ router.get('/summary/:studentId', async (req, res) => {
     try {
         const studentId = req.params.studentId;
         
+        const student = await User.findByPk(studentId);
+        if (!student) return res.status(404).json({ msg: 'Student not found' });
+        const studentName = student.name;
+        const standard = student.standard;
+
         // Find student enrollment and course fee
         const enrollment = await Enrollment.findOne({ where: { student_id: studentId } });
-        if (!enrollment) return res.status(404).json({ msg: 'Enrollment not found' });
         
-        const course = await Course.findByPk(enrollment.course_id);
-        const totalFees = parseFloat(course.fees || 0);
+        let totalFees = 0;
+        let courseTitle = 'Unassigned';
+        let fee_plan = 'EMI';
+        let total_installments = 1;
+        let installment_amount = 0;
+        let next_due_date = null;
+
+        if (enrollment) {
+            const course = enrollment.course_id ? await Course.findByPk(enrollment.course_id) : null;
+            if (course && parseFloat(course.fees) > 0) {
+                totalFees = parseFloat(course.fees);
+                courseTitle = course.title;
+            } else {
+                totalFees = getStandardFee(standard || (enrollment.batch_id ? (await sequelize.query('SELECT standard FROM batches WHERE id = ?', { replacements: [enrollment.batch_id], type: sequelize.QueryTypes.SELECT }))[0]?.standard : null));
+                courseTitle = getStandardCourseTitle(standard || (enrollment.batch_id ? (await sequelize.query('SELECT standard FROM batches WHERE id = ?', { replacements: [enrollment.batch_id], type: sequelize.QueryTypes.SELECT }))[0]?.standard : null));
+            }
+            fee_plan = enrollment.fee_plan;
+            total_installments = enrollment.total_installments;
+            installment_amount = enrollment.installment_amount;
+            next_due_date = enrollment.next_due_date;
+        } else {
+            // Unenrolled fallback from user standard
+            totalFees = getStandardFee(standard);
+            courseTitle = getStandardCourseTitle(standard) + ' (Pending Admission)';
+            installment_amount = totalFees;
+        }
 
         // Sum of payments
         const totalPaid = await FeePayment.sum('amount_paid', { where: { student_id: studentId } }) || 0;
-        
-        // Find student details
-        const student = await User.findByPk(studentId);
-        const studentName = student ? student.name : 'Student';
 
         res.json({
             studentName,
-            courseTitle: course.title,
+            courseTitle,
             totalFees,
             totalPaid: parseFloat(totalPaid),
-            totalPending: totalFees - parseFloat(totalPaid),
-            fee_plan: enrollment.fee_plan,
-            total_installments: enrollment.total_installments,
-            installment_amount: enrollment.installment_amount,
-            next_due_date: enrollment.next_due_date
+            totalPending: Math.max(0, totalFees - parseFloat(totalPaid)),
+            fee_plan,
+            total_installments,
+            installment_amount,
+            next_due_date
         });
     } catch (err) {
         console.error(err);
@@ -120,16 +155,25 @@ router.post('/pay', async (req, res) => {
         }
 
         // 1. Calculate exact pending amount
-        const enrollment = await Enrollment.findOne({ where: { student_id } });
-        if (!enrollment) {
-            return res.status(404).json({ msg: 'Student enrollment not found.' });
+        const student = await User.findByPk(student_id);
+        if (!student) {
+            return res.status(404).json({ msg: 'Student not found.' });
         }
         
-        const course = await Course.findByPk(enrollment.course_id);
-        if (!course) {
-             return res.status(404).json({ msg: 'Course not found.' });
+        const enrollment = await Enrollment.findOne({ where: { student_id } });
+        
+        let totalFees = 0;
+        if (enrollment) {
+            const course = enrollment.course_id ? await Course.findByPk(enrollment.course_id) : null;
+            if (course && parseFloat(course.fees) > 0) {
+                totalFees = parseFloat(course.fees);
+            } else {
+                const searchStandard = student.standard || (enrollment.batch_id ? (await sequelize.query('SELECT standard FROM batches WHERE id = ?', { replacements: [enrollment.batch_id], type: sequelize.QueryTypes.SELECT }))[0]?.standard : null);
+                totalFees = getStandardFee(searchStandard);
+            }
+        } else {
+            totalFees = getStandardFee(student.standard);
         }
-        const totalFees = parseFloat(course.fees || 0);
         
         const totalPaidRes = await FeePayment.sum('amount_paid', { where: { student_id } }) || 0;
         const totalPaid = parseFloat(totalPaidRes);
@@ -168,26 +212,52 @@ router.post('/pay', async (req, res) => {
 // @desc    Get all students and their fee summaries for Admin
 router.get('/all-pending', async (req, res) => {
     try {
+        const titleSql = getStandardCourseTitleSqlFragment('u.standard', 'e.batch_id');
+        const feeSql = getStandardFeeSqlFragment('u.standard', 'e.batch_id');
         const query = `
             SELECT 
                 u.id as student_id,
                 u.name as name,
                 u.phone as phone,
-                c.title as course,
-                c.class_range as standard,
-                c.board as board,
-                c.exam_target as exam_target,
+                COALESCE(
+                    c.title, 
+                    ${titleSql},
+                    'General Course'
+                ) as course,
+                COALESCE(u.standard, 'Unassigned') as standard,
+                COALESCE(
+                    c.board, 
+                    (SELECT board FROM courses WHERE class_range = u.standard AND fees > 0 ORDER BY fees DESC LIMIT 1),
+                    (SELECT board FROM courses WHERE class_range = (SELECT standard FROM batches WHERE id = e.batch_id) AND fees > 0 ORDER BY fees DESC LIMIT 1),
+                    'N/A'
+                ) as board,
+                COALESCE(
+                    c.exam_target, 
+                    (SELECT exam_target FROM courses WHERE class_range = u.standard AND fees > 0 ORDER BY fees DESC LIMIT 1),
+                    (SELECT exam_target FROM courses WHERE class_range = (SELECT standard FROM batches WHERE id = e.batch_id) AND fees > 0 ORDER BY fees DESC LIMIT 1),
+                    'None'
+                ) as exam_target,
                 e.batch_id as batch_id,
-                c.fees as totalFee,
-                e.fee_plan as fee_plan,
+                COALESCE(
+                    NULLIF(c.fees, 0), 
+                    ${feeSql},
+                    50000
+                ) as totalFee,
+                COALESCE(e.fee_plan, 'N/A') as fee_plan,
                 COALESCE(SUM(fp.amount_paid), 0) as paid,
-                (c.fees - COALESCE(SUM(fp.amount_paid), 0)) as pending
+                (
+                    COALESCE(
+                        NULLIF(c.fees, 0), 
+                        ${feeSql},
+                        50000
+                    ) - COALESCE(SUM(fp.amount_paid), 0)
+                ) as pending
             FROM users u
-            JOIN enrollments e ON u.id = e.student_id
-            JOIN courses c ON e.course_id = c.id
+            LEFT JOIN enrollments e ON u.id = e.student_id
+            LEFT JOIN courses c ON e.course_id = c.id
             LEFT JOIN fee_payments fp ON u.id = fp.student_id
             WHERE u.role = 'student'
-            GROUP BY u.id, u.name, u.phone, c.title, c.class_range, c.board, c.exam_target, e.batch_id, c.fees, e.fee_plan
+            GROUP BY u.id, u.name, u.phone, c.title, u.standard, c.board, c.exam_target, e.batch_id, c.fees, e.fee_plan, e.total_installments, e.installment_amount
         `;
         const data = await sequelize.query(query, { type: sequelize.QueryTypes.SELECT });
         
