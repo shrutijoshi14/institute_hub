@@ -250,9 +250,25 @@ router.put('/users/:id', async (req, res) => {
                 const totalFees = matchedCourse ? parseFloat(matchedCourse.fees) : 50000;
                 const plan = fee_plan || 'One-time';
                 const installments = plan === 'EMI' ? (parseInt(total_installments) || 4) : 1;
-                const instAmount = (totalFees - parseFloat(token_amount || 0)) / installments;
 
                 let enrollment = await Enrollment.findOne({ where: { student_id: user.id } });
+                
+                let instAmount;
+                if (enrollment && 
+                    String(enrollment.batch_id) === String(batch_id) && 
+                    enrollment.fee_plan === plan && 
+                    parseInt(enrollment.total_installments) === parseInt(installments) && 
+                    !parseFloat(token_amount)) {
+                    // No fee/plan details changed, retain existing installment amount
+                    instAmount = enrollment.installment_amount;
+                } else {
+                    // Recalculate
+                    const FeePayment = require('../models/FeePayment');
+                    const existingPaid = await FeePayment.sum('amount_paid', { where: { student_id: user.id } }) || 0;
+                    const totalDeduction = parseFloat(existingPaid) + parseFloat(token_amount || 0);
+                    instAmount = (totalFees - totalDeduction) / installments;
+                }
+
                 if (enrollment) {
                     await enrollment.update({
                         batch_id: batch_id,
