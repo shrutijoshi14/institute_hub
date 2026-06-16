@@ -1,13 +1,18 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-if (!process.env.DB_PASSWORD && !process.env.DATABASE_URL) {
-    console.error('CRITICAL: Neither DB_PASSWORD nor DATABASE_URL is defined in .env! Current CWD: ' + process.cwd());
-}
+// Determine whether to use local MySQL database or live Supabase/Postgre database.
+// 1. If running on Render (process.env.RENDER is 'true'), use live database.
+// 2. If running locally:
+//    - If process.env.FORCE_LIVE_DB is 'true' and DATABASE_URL is defined, use live database.
+//    - Otherwise, default to local MySQL.
+const isRender = process.env.RENDER === 'true';
+const forceLive = process.env.FORCE_LIVE_DB === 'true';
+const useLiveDB = isRender || (forceLive && process.env.DATABASE_URL);
 
 // Auto-detect dialect from DATABASE_URL prefix, or fallback to DB_DIALECT or 'mysql'
 let dbDialect = 'mysql';
-if (process.env.DATABASE_URL) {
+if (useLiveDB && process.env.DATABASE_URL) {
     if (process.env.DATABASE_URL.startsWith('postgres://') || process.env.DATABASE_URL.startsWith('postgresql://')) {
         dbDialect = 'postgres';
     } else if (process.env.DATABASE_URL.startsWith('mysql://')) {
@@ -21,7 +26,8 @@ const isPostgres = dbDialect === 'postgres' || dbDialect === 'postgresql';
 
 let sequelize;
 
-if (process.env.DATABASE_URL) {
+if (useLiveDB && process.env.DATABASE_URL) {
+    console.log(`📡 Connecting to LIVE Database (Supabase/PostgreSQL) - Mode: ${isRender ? 'Render Live' : 'Forced Live Local'}`);
     // Connection string URI configuration (e.g. postgresql://... or mysql://...)
     sequelize = new Sequelize(process.env.DATABASE_URL, {
         dialect: isPostgres ? 'postgres' : 'mysql',
@@ -34,6 +40,7 @@ if (process.env.DATABASE_URL) {
         } : {}
     });
 } else {
+    console.log("💻 Connecting to LOCAL Database (MySQL)");
     // Standard host/user/password configuration (typical for local MySQL workbench)
     sequelize = new Sequelize(
         process.env.DB_NAME,
