@@ -1,5 +1,5 @@
 const { Sequelize } = require('sequelize');
-require('dotenv').config();
+require('dotenv').config({ override: true });
 
 // Determine whether to use local MySQL database or live Supabase/Postgre database.
 // 1. If running on Render (process.env.RENDER is 'true'), use live database.

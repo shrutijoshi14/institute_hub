@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ override: true });
 const mysql = require('mysql2/promise');
 const { sequelize } = require('./config/db');
 
