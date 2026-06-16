@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BookOpen, Clock, Plus, Trash2, Edit, X } from 'lucide-react';
-import { STANDARDS, BOARDS, EXAMS, SUBJECTS, BOARDS_BY_STANDARD, EXAMS_BY_STANDARD } from '../utils/constants';
+import { STANDARDS, BOARDS, EXAMS, SUBJECTS, BOARDS_BY_STANDARD, EXAMS_BY_STANDARD, SUBJECTS_BY_STANDARD } from '../utils/constants';
 import DeleteModal from '../components/DeleteModal';
 
 const Syllabus = () => {
@@ -289,11 +289,13 @@ const Syllabus = () => {
                       const newClass = e.target.value;
                       const boards = BOARDS_BY_STANDARD[newClass] || [];
                       const exams = EXAMS_BY_STANDARD[newClass] || [];
+                      const subjects = SUBJECTS_BY_STANDARD[newClass] || [];
                       setFormData({
                         ...formData, 
                         class_range: newClass,
                         board: boards.length > 0 ? boards[0] : 'State Board',
-                        exam_target: exams.length > 0 ? exams[0] : 'None'
+                        exam_target: exams.length > 0 ? exams[0] : 'None',
+                        subject: subjects.length > 0 ? subjects[0] : 'General'
                       });
                     }} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
                     {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -302,7 +304,11 @@ const Syllabus = () => {
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Subject</label>
                   <select value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
-                    {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {(() => {
+                      const currentStd = formData.class_range || '5th';
+                      const subjects = SUBJECTS_BY_STANDARD[currentStd] || SUBJECTS;
+                      return subjects.map(s => <option key={s} value={s}>{s}</option>);
+                    })()}
                   </select>
                 </div>
                 <div className="form-group">

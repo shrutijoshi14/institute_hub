@@ -86,3 +86,15 @@ export const SUBJECTS = [
     // Arts
     'Political Science', 'Psychology', 'Sociology', 'Philosophy'
 ];
+
+export const SUBJECTS_BY_STANDARD = {
+    '5th': ['Mathematics', 'Science', 'Social Studies', 'Computer', 'General Knowledge', 'English', 'Hindi', 'Marathi', 'Sanskrit', 'Drawing', 'Moral Science', 'Physical Education'],
+    '6th': ['Mathematics', 'Science', 'Social Studies', 'Computer', 'General Knowledge', 'English', 'Hindi', 'Marathi', 'Sanskrit', 'Drawing', 'Moral Science', 'Physical Education'],
+    '7th': ['Mathematics', 'Science', 'Social Studies', 'Computer', 'General Knowledge', 'English', 'Hindi', 'Marathi', 'Sanskrit', 'Drawing', 'Moral Science', 'Physical Education'],
+    '8th': ['Mathematics', 'Science', 'Social Studies', 'Computer', 'General Knowledge', 'English', 'Hindi', 'Marathi', 'Sanskrit', 'Drawing', 'Moral Science', 'Physical Education'],
+    '9th': ['Mathematics', 'Science', 'Social Science', 'English', 'Hindi', 'Marathi', 'Sanskrit', 'History', 'Geography', 'Civics', 'Economics', 'Physics', 'Chemistry', 'Biology', 'Computer / IT'],
+    'SSC (10th)': ['Mathematics', 'Science', 'Social Science', 'English', 'Hindi', 'Marathi', 'Sanskrit', 'History', 'Geography', 'Civics', 'Economics', 'Physics', 'Chemistry', 'Biology', 'Computer / IT'],
+    '11th': ['Physics', 'Chemistry', 'Biology', 'Mathematics', 'English', 'Accountancy', 'Business Studies', 'Mathematics / SP', 'Secretarial Practice', 'Economics', 'Political Science', 'Psychology', 'Sociology', 'Philosophy', 'Computer Science', 'Electronics', 'Information Technology'],
+    'HSC (12th)': ['Physics', 'Chemistry', 'Biology', 'Mathematics', 'English', 'Accountancy', 'Business Studies', 'Mathematics / SP', 'Secretarial Practice', 'Economics', 'Political Science', 'Psychology', 'Sociology', 'Philosophy', 'Computer Science', 'Electronics', 'Information Technology'],
+    'Diploma / Vocational': ['Computer / IT', 'Computer Science', 'Electronics', 'Polytechnic', 'ITI', 'Diploma Engineering', 'Mathematics', 'Physics', 'Chemistry', 'Engineering Drawing', 'Applied Mechanics', 'Basic Electronics']
+};
