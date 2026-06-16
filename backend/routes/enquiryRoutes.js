@@ -89,7 +89,7 @@ router.post('/convert/:id', async (req, res) => {
         const enquiry = await Enquiry.findByPk(req.params.id);
         if (!enquiry) return res.status(404).json({ msg: 'Enquiry not found' });
 
-        const { password, batch_id, fee_plan } = req.body;
+        const { password, batch_id, fee_plan, standard, board } = req.body;
         if (!password || !batch_id) return res.status(400).json({ msg: 'Password and Batch are required for conversion.' });
 
         // Logic similar to registration but from enquiry data
@@ -107,6 +107,7 @@ router.post('/convert/:id', async (req, res) => {
         let autoStudentCreds, autoParentCreds;
         if (existingStudent) {
             newUser = existingStudent;
+            await newUser.update({ standard: standard || existingStudent.standard });
         } else {
             autoStudentCreds = await generateCredentials('student');
 
@@ -117,7 +118,7 @@ router.post('/convert/:id', async (req, res) => {
                 role: 'student',
                 phone: enquiry.phone,
                 username: autoStudentCreds.username,
-                standard: enquiry.class_range,
+                standard: standard || enquiry.class_range,
                 parent_name: parent_name || '',
                 parent_phone: parent_phone || enquiry.phone,
                 address: address || '',
@@ -192,8 +193,8 @@ router.post('/convert/:id', async (req, res) => {
             name: enquiry.name,
             email: studentEmail,
             phone: enquiry.phone,
-            class: enquiry.class_range || '9th',
-            board: enquiry.board || 'State Board',
+            class: standard || enquiry.class_range || '9th',
+            board: board || enquiry.board || 'State Board',
             course_interest: batch.name,
             password: password,
             status: 'approved',

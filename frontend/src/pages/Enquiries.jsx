@@ -128,9 +128,13 @@ const Enquiries = () => {
 
   const openConvertModal = (enq) => {
     setConvertingEnq(enq);
-    const filtered = batches.filter(b => b.standard === enq.class_range && b.board === enq.board);
+    const initialStd = enq.class_range || '9th';
+    const initialBoard = enq.board || 'State Board';
+    const filtered = batches.filter(b => b.standard === initialStd && b.board === initialBoard);
     setConvertData(prev => ({
       ...prev,
+      standard: initialStd,
+      board: initialBoard,
       batch_id: filtered.length > 0 ? filtered[0].id : '',
       parent_name: enq.parent_name || '',
       parent_phone: enq.parent_phone || enq.phone || '',
@@ -428,15 +432,17 @@ const Enquiries = () => {
                   <div className="form-group">
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>Standard / Class</label>
                     <select 
-                      value={convertData.standard || convertingEnq?.class_range} 
+                      value={convertData.standard} 
                       onChange={e => {
                         const newStd = e.target.value;
-                        const availableBoards = [...new Set(batches.filter(b => b.standard === newStd).map(b => b.board))];
+                        const boards = BOARDS_BY_STANDARD[newStd] || [];
+                        const firstBoard = boards.length > 0 ? boards[0] : '';
+                        const filtered = batches.filter(b => b.standard === newStd && b.board === firstBoard);
                         setConvertData({
                           ...convertData, 
                           standard: newStd,
-                          board: availableBoards.length > 0 ? availableBoards[0] : '',
-                          batch_id: ''
+                          board: firstBoard,
+                          batch_id: filtered.length > 0 ? filtered[0].id : ''
                         });
                       }}
                       style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}
@@ -447,10 +453,10 @@ const Enquiries = () => {
                   <div className="form-group">
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>Board / Stream</label>
                     <select 
-                      value={convertData.board || (convertData.standard ? '' : convertingEnq?.board)} 
+                      value={convertData.board} 
                       onChange={e => {
                         const newBoard = e.target.value;
-                        const currentStd = convertData.standard || convertingEnq?.class_range;
+                        const currentStd = convertData.standard || '9th';
                         const filtered = batches.filter(b => b.standard === currentStd && b.board === newBoard);
                         setConvertData({
                           ...convertData, 
@@ -462,9 +468,9 @@ const Enquiries = () => {
                     >
                       <option value="">Select Board</option>
                       {(() => {
-                        const currentStd = convertData.standard || convertingEnq?.class_range;
-                        const availableBoards = [...new Set(batches.filter(b => b.standard === currentStd).map(b => b.board))];
-                        return availableBoards.map(b => <option key={b} value={b}>{b}</option>);
+                        const currentStd = convertData.standard || '9th';
+                        const boards = BOARDS_BY_STANDARD[currentStd] || [];
+                        return boards.map(b => <option key={b} value={b}>{b}</option>);
                       })()}
                     </select>
                   </div>
