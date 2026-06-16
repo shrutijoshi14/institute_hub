@@ -83,26 +83,27 @@ const Enquiries = () => {
   }, []);
 
   useEffect(() => {
-    if (convertData.batch_id) {
-        const batch = batches.find(b => String(b.id) === String(convertData.batch_id));
-        let fees = 50000;
-        if (batch) {
-          const matchedCourse = courses.find(c => 
-            String(c.class_range).toLowerCase() === String(batch.standard).toLowerCase() && 
-            String(c.board).toLowerCase() === String(batch.board).toLowerCase()
-          );
-          if (matchedCourse) {
-            fees = parseFloat(matchedCourse.fees) || 50000;
-          }
-        }
-        if (convertData.fee_plan === 'One-time') {
-          setConvertData(prev => ({ ...prev, token_amount: fees, installments: 1 }));
-        } else {
-          const instCount = parseInt(convertData.installments) || 4;
-          setConvertData(prev => ({ ...prev, token_amount: (fees / instCount).toFixed(2), installments: instCount }));
-        }
+    const currentStd = convertData.standard || (convertingEnq ? convertingEnq.class_range : '');
+    const currentBoard = convertData.board || (convertingEnq ? convertingEnq.board : '');
+    let fees = 50000;
+
+    if (currentStd && currentBoard) {
+      const matchedCourse = courses.find(c => 
+        String(c.class_range).toLowerCase() === String(currentStd).toLowerCase() && 
+        String(c.board).toLowerCase() === String(currentBoard).toLowerCase()
+      );
+      if (matchedCourse) {
+        fees = parseFloat(matchedCourse.fees) || 50000;
+      }
     }
-  }, [convertData.batch_id, convertData.fee_plan, convertData.installments, batches, courses]);
+
+    if (convertData.fee_plan === 'One-time') {
+      setConvertData(prev => ({ ...prev, token_amount: fees, installments: 1 }));
+    } else {
+      const instCount = parseInt(convertData.installments) || 4;
+      setConvertData(prev => ({ ...prev, token_amount: (fees / instCount).toFixed(2), installments: instCount }));
+    }
+  }, [convertData.standard, convertData.board, convertData.fee_plan, convertData.installments, courses, convertingEnq]);
 
   const openForm = (enq = null) => {
     if (enq) {
@@ -544,7 +545,7 @@ const Enquiries = () => {
                {convertData.fee_plan === 'EMI' && (
                  <div className="form-group">
                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>Number of Installments</label>
-                   <select value={convertData.installments} onChange={e => setConvertData({...convertData, installments: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
+                   <select value={convertData.installments} onChange={e => setConvertData({...convertData, installments: parseInt(e.target.value) || 4})} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
                      <option value="2">2 Installments</option>
                      <option value="3">3 Installments</option>
                      <option value="4">4 Installments</option>
