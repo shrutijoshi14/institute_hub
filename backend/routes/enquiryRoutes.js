@@ -75,13 +75,75 @@ router.put('/:id', async (req, res) => {
         if (!enquiry) return res.status(404).json({ msg: 'Enquiry not found' });
         
         const { name, email, phone, class_range, board, exam_target, message, status, lost_reason, parent_name, parent_phone, address, dob, blood_group } = req.body;
+        
+        const oldEmail = enquiry.email;
+        const oldPhone = enquiry.phone;
+
         await enquiry.update({ 
             name, email, phone, class_range, board, exam_target, message, status, lost_reason, parent_name, parent_phone, address, 
             dob: dob || null, 
             blood_group 
         });
+
+        // Sync to corresponding Student User and Parent User accounts if student exists
+        const User = require('../models/User');
+        const { Op } = require('sequelize');
+        const studentUser = await User.findOne({
+            where: {
+                role: 'student',
+                [Op.or]: [
+                    { email: oldEmail || 'no-email' },
+                    { phone: oldPhone || 'no-phone' }
+                ]
+            }
+        });
+
+        if (studentUser) {
+            await studentUser.update({
+                name,
+                email,
+                phone,
+                standard: class_range,
+                parent_name,
+                parent_phone,
+                address,
+                dob: dob || null,
+                blood_group
+            });
+
+            // Update parent user account
+            const parentUser = await User.findOne({ where: { parent_id: studentUser.id, role: 'parent' } });
+            if (parentUser) {
+                const parentUpdate = {};
+                if (parent_name) parentUpdate.name = parent_name;
+                if (parent_phone) parentUpdate.phone = parent_phone;
+                await parentUser.update(parentUpdate);
+            }
+        }
+
+        // Sync to corresponding Registration record if it exists
+        const Registration = require('../models/Registration');
+        const matchingRegistration = await Registration.findOne({
+            where: {
+                [Op.or]: [
+                    { email: oldEmail || 'no-email' },
+                    { phone: oldPhone || 'no-phone' }
+                ]
+            }
+        });
+        if (matchingRegistration) {
+            await matchingRegistration.update({
+                name,
+                email,
+                phone,
+                class: class_range,
+                board
+            });
+        }
+
         res.json({ msg: 'Enquiry updated' });
     } catch (err) {
+        console.error('Enquiry Update Sync Error:', err);
         res.status(500).send('Server Error');
     }
 });

@@ -77,15 +77,25 @@ const Register = () => {
 
     try {
       const payload = {
-        ...formData,
-        class_range: formData.standard, // Map standard to class_range for the enquiry API
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        username: formData.username,
+        password: formData.password,
+        class: formData.standard, // registration API uses 'class'
         board: formData.board || 'State Board',
-        exam_target: formData.course_interest || 'None',
-        message: 'Registered via public portal. Awaiting conversion.',
+        course_interest: formData.course_interest || 'General Admission',
+        parent_name: formData.parent_name,
+        parent_phone: formData.parent_phone,
+        address: formData.address,
+        dob: formData.dob || null,
+        fee_plan: 'One-time',
+        total_installments: 1,
+        token_amount: 0
       };
       
-      // Submit as an Enquiry/Registration Request
-      await axios.post('http://localhost:5000/api/enquiry', payload);
+      // Submit as a Registration Queue Request
+      await axios.post('http://localhost:5000/api/registration', payload);
       setIsSuccess(true);
     } catch (err) {
       setError(err.response?.data?.msg || 'Registration failed. Please try again.');

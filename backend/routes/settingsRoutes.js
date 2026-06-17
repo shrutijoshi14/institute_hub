@@ -24,7 +24,8 @@ const readSettings = () => {
         logoUrl: '', 
         contactEmail: 'info@institute.com', 
         iconName: 'GraduationCap',
-        standardFees: DEFAULT_STANDARD_FEES 
+        standardFees: DEFAULT_STANDARD_FEES,
+        boardExamCosts: []
     };
     if (fs.existsSync(SETTINGS_FILE)) {
         try {
@@ -36,6 +37,9 @@ const readSettings = () => {
     }
     if (!settings.standardFees) {
         settings.standardFees = DEFAULT_STANDARD_FEES;
+    }
+    if (!settings.boardExamCosts) {
+        settings.boardExamCosts = [];
     }
     return settings;
 };
@@ -61,7 +65,7 @@ router.get('/', (req, res) => {
 // @desc    Update School Settings
 router.put('/', (req, res) => {
     try {
-        const { schoolName, logoUrl, contactEmail, iconName, standardFees } = req.body;
+        const { schoolName, logoUrl, contactEmail, iconName, standardFees, boardExamCosts } = req.body;
         const currentSettings = readSettings();
         
         const newSettings = {
@@ -70,7 +74,8 @@ router.put('/', (req, res) => {
             logoUrl: logoUrl !== undefined ? logoUrl : currentSettings.logoUrl,
             contactEmail: contactEmail !== undefined ? contactEmail : currentSettings.contactEmail,
             iconName: iconName !== undefined ? iconName : currentSettings.iconName,
-            standardFees: standardFees !== undefined ? standardFees : currentSettings.standardFees
+            standardFees: standardFees !== undefined ? standardFees : currentSettings.standardFees,
+            boardExamCosts: boardExamCosts !== undefined ? boardExamCosts : currentSettings.boardExamCosts
         };
 
         writeSettings(newSettings);

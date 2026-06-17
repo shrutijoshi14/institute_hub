@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Save, Upload } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
-import { STANDARDS } from '../utils/constants';
+import { STANDARDS, BOARDS_BY_STANDARD } from '../utils/constants';
 
 const Settings = () => {
   const [settings, setSettings] = useState({
@@ -10,9 +10,15 @@ const Settings = () => {
     logoUrl: '',
     contactEmail: '',
     iconName: '',
-    standardFees: {}
+    standardFees: {},
+    boardExamCosts: []
   });
   const [msg, setMsg] = useState('');
+  const [newRule, setNewRule] = useState({
+    standard: STANDARDS[0],
+    board: BOARDS_BY_STANDARD[STANDARDS[0]]?.[0] || 'CBSE',
+    cost: ''
+  });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -46,7 +52,7 @@ const Settings = () => {
     <div>
       <h1 className="page-title">Institution Settings</h1>
 
-      {msg && <div style={{ padding: '1rem', backgroundColor: msg.includes('✅') ? '#D1FAE5' : '#FEE2E2', color: msg.includes('✅') ? '#065F46' : '#991B1B', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', fontWeight: 500 }}>
+      {msg && <div style={{ padding: '1rem', backgroundColor: msg.includes('✅') || msg.includes('🗑️') ? '#D1FAE5' : '#FEE2E2', color: msg.includes('✅') || msg.includes('🗑️') ? '#065F46' : '#991B1B', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', fontWeight: 500 }}>
         {msg}
       </div>}
 
@@ -166,6 +172,146 @@ const Settings = () => {
                </button>
             </form>
           </div>
+
+          <div className="card">
+            <h2>Standard & Board Exam Costs</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+               Manage the board exam registration costs for combinations of standards and boards.
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 120px', gap: '0.75rem', alignItems: 'end', marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Standard</label>
+                <select 
+                  value={newRule.standard} 
+                  onChange={(e) => {
+                    const std = e.target.value;
+                    const boards = BOARDS_BY_STANDARD[std] || [];
+                    setNewRule({
+                      standard: std,
+                      board: boards.length > 0 ? boards[0] : 'State Board',
+                      cost: newRule.cost
+                    });
+                  }}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white' }}
+                >
+                  {STANDARDS.map(std => <option key={std} value={std}>{std} Standard</option>)}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>School Board / Stream</label>
+                <select 
+                  value={newRule.board} 
+                  onChange={(e) => setNewRule({ ...newRule, board: e.target.value })}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white' }}
+                >
+                  {(BOARDS_BY_STANDARD[newRule.standard] || []).map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Exam Cost</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: '0.6rem', top: '50%', transform: 'translateY(-50%)', color: '#64748B', fontSize: '0.85rem' }}>₹</span>
+                  <input 
+                    type="number"
+                    placeholder="0"
+                    value={newRule.cost}
+                    onChange={(e) => setNewRule({ ...newRule, cost: e.target.value })}
+                    style={{ width: '100%', padding: '0.6rem 0.6rem 0.6rem 1.4rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="button" 
+                className="btn btn-primary"
+                onClick={async () => {
+                  if (!newRule.cost || isNaN(newRule.cost) || parseFloat(newRule.cost) <= 0) {
+                    alert('Please enter a valid cost amount.');
+                    return;
+                  }
+                  const ruleToAdd = {
+                    standard: newRule.standard,
+                    board: newRule.board,
+                    cost: parseFloat(newRule.cost)
+                  };
+                  const updatedRules = [...(settings.boardExamCosts || [])];
+                  const idx = updatedRules.findIndex(r => r.standard === ruleToAdd.standard && r.board === ruleToAdd.board);
+                  if (idx > -1) {
+                    updatedRules[idx] = ruleToAdd;
+                  } else {
+                    updatedRules.push(ruleToAdd);
+                  }
+                  
+                  const updatedSettings = { ...settings, boardExamCosts: updatedRules };
+                  try {
+                    const res = await axios.put('http://localhost:5000/api/settings', updatedSettings);
+                    setSettings(res.data);
+                    setNewRule(prev => ({ ...prev, cost: '' }));
+                    setMsg('✅ Board exam cost rule saved successfully!');
+                    setTimeout(() => setMsg(''), 4000);
+                  } catch (err) {
+                    console.error(err);
+                    alert('Error saving cost rule.');
+                  }
+                }}
+                style={{ gridColumn: 'span 3', justifySelf: 'end', padding: '0.6rem 1.2rem', marginTop: '0.5rem' }}
+              >
+                Add / Update Cost Rule
+              </button>
+            </div>
+
+            <div className="table-container" style={{ maxHeight: '250px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                    <th style={{ padding: '0.5rem 0' }}>Standard</th>
+                    <th style={{ padding: '0.5rem 0' }}>Board / Stream</th>
+                    <th style={{ padding: '0.5rem 0', textAlign: 'right' }}>Cost</th>
+                    <th style={{ padding: '0.5rem 0', textAlign: 'center', width: '80px' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(settings.boardExamCosts || []).length === 0 ? (
+                    <tr>
+                      <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '1.5rem 0' }}>No board exam cost rules defined yet.</td>
+                    </tr>
+                  ) : (
+                    (settings.boardExamCosts || []).map((rule, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '0.6rem 0', fontWeight: 600 }}>{rule.standard}</td>
+                        <td style={{ padding: '0.6rem 0' }}>{rule.board}</td>
+                        <td style={{ padding: '0.6rem 0', textAlign: 'right', fontWeight: 700, color: 'var(--primary)' }}>₹{rule.cost.toLocaleString()}</td>
+                        <td style={{ padding: '0.6rem 0', textAlign: 'center' }}>
+                          <button 
+                            type="button"
+                            onClick={async () => {
+                              const updatedRules = (settings.boardExamCosts || []).filter((_, i) => i !== idx);
+                              const updatedSettings = { ...settings, boardExamCosts: updatedRules };
+                              try {
+                                const res = await axios.put('http://localhost:5000/api/settings', updatedSettings);
+                                setSettings(res.data);
+                                setMsg('🗑️ Cost rule removed successfully.');
+                                setTimeout(() => setMsg(''), 4000);
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            style={{ border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', fontWeight: 600 }}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

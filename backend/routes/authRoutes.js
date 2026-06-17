@@ -231,65 +231,128 @@ router.put('/users/:id', async (req, res) => {
         const user = await User.findByPk(req.params.id);
         if (!user) return res.status(404).json({ msg: 'User not found' });
         
+        const oldEmail = user.email;
+        const oldPhone = user.phone;
+
         const updateData = { ...req.body };
         if (updateData.dob === '') {
             updateData.dob = null;
         }
         await user.update(updateData);
 
-        if (user.role === 'student' && req.body.batch_id) {
-            const { batch_id, fee_plan, total_installments, token_amount } = req.body;
-            const Batch = require('../models/Batch');
-            const Course = require('../models/Course');
-            const batch = await Batch.findByPk(batch_id);
-            if (batch) {
-                const matchedCourse = await Course.findOne({
-                    where: { class_range: batch.standard, board: batch.board },
-                    order: [['fees', 'DESC']]
-                });
-                const courseId = matchedCourse ? matchedCourse.id : null;
-                const { getStandardFee } = require('../utils/feeHelper');
-                const totalFees = getStandardFee(batch.standard, matchedCourse);
-                const plan = fee_plan || 'One-time';
-                const installments = plan === 'EMI' ? (parseInt(total_installments) || 4) : 1;
-
-                let enrollment = await Enrollment.findOne({ where: { student_id: user.id } });
-                
-                let instAmount;
-                if (enrollment && 
-                    String(enrollment.batch_id) === String(batch_id) && 
-                    enrollment.fee_plan === plan && 
-                    parseInt(enrollment.total_installments) === parseInt(installments) && 
-                    !parseFloat(token_amount)) {
-                    // No fee/plan details changed, retain existing installment amount
-                    instAmount = enrollment.installment_amount;
-                } else {
-                    // Recalculate
-                    const FeePayment = require('../models/FeePayment');
-                    const existingPaid = await FeePayment.sum('amount_paid', { where: { student_id: user.id } }) || 0;
-                    const totalDeduction = parseFloat(existingPaid) + parseFloat(token_amount || 0);
-                    instAmount = (totalFees - totalDeduction) / installments;
+        if (user.role === 'student') {
+            // 1. Sync corresponding Parent user account details
+            if (updateData.parent_name || updateData.parent_phone) {
+                const parentUser = await User.findOne({ where: { parent_id: user.id, role: 'parent' } });
+                if (parentUser) {
+                    const parentUpdate = {};
+                    if (updateData.parent_name) parentUpdate.name = updateData.parent_name;
+                    if (updateData.parent_phone) parentUpdate.phone = updateData.parent_phone;
+                    await parentUser.update(parentUpdate);
                 }
+            }
 
-                if (enrollment) {
-                    await enrollment.update({
-                        batch_id: batch_id,
-                        course_id: courseId,
-                        fee_plan: plan,
-                        total_installments: installments,
-                        installment_amount: instAmount
+            // 2. Sync corresponding Enquiry record
+            const Enquiry = require('../models/Enquiry');
+            const matchingEnquiry = await Enquiry.findOne({
+                where: {
+                    [Op.or]: [
+                        { email: oldEmail },
+                        { phone: oldPhone },
+                        { email: user.email },
+                        { phone: user.phone }
+                    ]
+                }
+            });
+            if (matchingEnquiry) {
+                await matchingEnquiry.update({
+                    name: user.name,
+                    email: user.email,
+                    phone: user.phone,
+                    class_range: user.standard,
+                    parent_name: user.parent_name,
+                    parent_phone: user.parent_phone,
+                    address: user.address,
+                    dob: user.dob,
+                    blood_group: user.blood_group
+                });
+            }
+
+            // 3. Sync corresponding Registration record
+            const Registration = require('../models/Registration');
+            const matchingRegistration = await Registration.findOne({
+                where: {
+                    [Op.or]: [
+                        { email: oldEmail },
+                        { phone: oldPhone },
+                        { email: user.email },
+                        { phone: user.phone }
+                    ]
+                }
+            });
+            if (matchingRegistration) {
+                await matchingRegistration.update({
+                    name: user.name,
+                    email: user.email,
+                    phone: user.phone,
+                    class: user.standard
+                });
+            }
+
+            if (req.body.batch_id) {
+                const { batch_id, fee_plan, total_installments, token_amount } = req.body;
+                const Batch = require('../models/Batch');
+                const Course = require('../models/Course');
+                const batch = await Batch.findByPk(batch_id);
+                if (batch) {
+                    const matchedCourse = await Course.findOne({
+                        where: { class_range: batch.standard, board: batch.board },
+                        order: [['fees', 'DESC']]
                     });
-                } else {
-                    await Enrollment.create({
-                        student_id: user.id,
-                        batch_id: batch_id,
-                        course_id: courseId,
-                        batch_year: '2025-26',
-                        fee_plan: plan,
-                        total_installments: installments,
-                        installment_amount: instAmount,
-                        next_due_date: plan === 'EMI' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : null
-                    });
+                    const courseId = matchedCourse ? matchedCourse.id : null;
+                    const { getStandardFee } = require('../utils/feeHelper');
+                    const totalFees = getStandardFee(batch.standard, matchedCourse);
+                    const plan = fee_plan || 'One-time';
+                    const installments = plan === 'EMI' ? (parseInt(total_installments) || 4) : 1;
+
+                    let enrollment = await Enrollment.findOne({ where: { student_id: user.id } });
+                    
+                    let instAmount;
+                    if (enrollment && 
+                        String(enrollment.batch_id) === String(batch_id) && 
+                        enrollment.fee_plan === plan && 
+                        parseInt(enrollment.total_installments) === parseInt(installments) && 
+                        !parseFloat(token_amount)) {
+                        // No fee/plan details changed, retain existing installment amount
+                        instAmount = enrollment.installment_amount;
+                    } else {
+                        // Recalculate
+                        const FeePayment = require('../models/FeePayment');
+                        const existingPaid = await FeePayment.sum('amount_paid', { where: { student_id: user.id } }) || 0;
+                        const totalDeduction = parseFloat(existingPaid) + parseFloat(token_amount || 0);
+                        instAmount = (totalFees - totalDeduction) / installments;
+                    }
+
+                    if (enrollment) {
+                        await enrollment.update({
+                            batch_id: batch_id,
+                            course_id: courseId,
+                            fee_plan: plan,
+                            total_installments: installments,
+                            installment_amount: instAmount
+                        });
+                    } else {
+                        await Enrollment.create({
+                            student_id: user.id,
+                            batch_id: batch_id,
+                            course_id: courseId,
+                            batch_year: '2025-26',
+                            fee_plan: plan,
+                            total_installments: installments,
+                            installment_amount: instAmount,
+                            next_due_date: plan === 'EMI' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : null
+                        });
+                    }
                 }
             }
         }

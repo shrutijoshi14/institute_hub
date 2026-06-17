@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
 // @desc    Submit a new registration and create user account
 router.post('/', async (req, res) => {
     try {
-        const { name, email, username, phone, class: className, board, course_interest, password, fee_plan, total_installments, parent_username, parent_password } = req.body;
+        const { name, email, username, phone, class: className, board, course_interest, password, fee_plan, total_installments, parent_username, parent_password, parent_name, parent_phone, address, dob, blood_group } = req.body;
 
         if (!name || !phone || !className || !board || !course_interest || !password) {
             return res.status(400).json({ msg: 'Please provide all required fields.' });
@@ -44,7 +44,7 @@ router.post('/', async (req, res) => {
         }
 
         const newRegistration = await Registration.create({
-            name, email, phone, class: className, board, course_interest, password
+            name, email, phone, class: className, board, course_interest, password, token_amount: req.body.token_amount || 0
         });
 
         // Generate sequential credentials fallback
@@ -62,18 +62,26 @@ router.post('/', async (req, res) => {
             password: password || studentCreds.password, // Use provided or auto-generated
             role: 'student',
             phone,
-            username: resolvedUsername
+            username: resolvedUsername,
+            standard: className,
+            parent_name,
+            parent_phone,
+            address,
+            dob: dob || null,
+            blood_group,
+            status: 'pending'
         });
 
         // Automatically create Parent User for this student
         const parentUser = await User.create({
-            name: `${name} Parent`,
+            name: parent_name || `${name} Parent`,
             email: `parent_${newUser.id}@${getDomain()}`,
             password: resolvedParentPassword,
             role: 'parent',
-            phone: phone,
+            phone: parent_phone || phone,
             parent_id: newUser.id,
-            username: resolvedParentUsername
+            username: resolvedParentUsername,
+            status: 'pending'
         });
 
         console.log(`✅ Student Login: ${resolvedUsername} / ${password || studentCreds.password}`);
@@ -126,7 +134,7 @@ router.post('/', async (req, res) => {
         }
 
         res.status(201).json({ 
-            msg: 'Registration successful. You can now login.',
+            msg: 'Registration successful. Awaiting admin approval.',
             data: newRegistration,
             credentials: {
                 student: { username: (await User.findOne({ where: { id: newUser.id } })).username, note: 'Password as entered or auto-generated' },
@@ -149,6 +157,35 @@ router.put('/:id', async (req, res) => {
         
         registration.status = status;
         await registration.save();
+
+        // Update corresponding Student and Parent User status
+        const studentEmail = registration.email || `${registration.phone}@${getDomain()}`;
+        const studentUser = await User.findOne({
+            where: {
+                role: 'student',
+                [Op.or]: [
+                    { email: studentEmail },
+                    { phone: registration.phone }
+                ]
+            }
+        });
+
+        if (studentUser) {
+            const userStatus = status === 'approved' ? 'active' : status === 'rejected' ? 'suspended' : 'pending';
+            await studentUser.update({ status: userStatus });
+            
+            // Update parent status too
+            const parentUser = await User.findOne({
+                where: {
+                    role: 'parent',
+                    parent_id: studentUser.id
+                }
+            });
+            if (parentUser) {
+                await parentUser.update({ status: userStatus });
+            }
+        }
+        
         res.json(registration);
     } catch (err) {
         res.status(500).send('Server Error');
