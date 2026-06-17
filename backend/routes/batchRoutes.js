@@ -51,7 +51,7 @@ router.put('/:id', async (req, res) => {
         if (!batch) return res.status(404).json({ msg: 'Batch not found' });
         
         const { name, standard, board, timing, facultyIds } = req.body;
-        await batch.update({ name, standard, board, timing });
+        await batch.update({ name, standard, board: board || 'State Board', timing });
         
         if (facultyIds) {
             const faculties = await Faculty.findAll({ where: { id: facultyIds } });

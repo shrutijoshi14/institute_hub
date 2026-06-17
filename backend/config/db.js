@@ -149,6 +149,106 @@ const connectDB = async () => {
         }
 
         console.log('Database synced successfully.');
+
+        // Backfill missing Registrations (logic sync)
+        try {
+            const Enquiry = require('../models/Enquiry');
+            const Registration = require('../models/Registration');
+            const User = require('../models/User');
+            const { Op } = require('sequelize');
+
+            // 1. Backfill from Enquiries table
+            const enquiries = await Enquiry.findAll();
+            for (const enq of enquiries) {
+                // If it looks like a registration or is converted/enrolled
+                const isRegType = enq.status === 'Converted' || (enq.message && enq.message.toLowerCase().includes('register'));
+                if (!isRegType) continue;
+
+                const existingReg = await Registration.findOne({
+                    where: {
+                        [Op.or]: [
+                            enq.email ? { email: enq.email } : null,
+                            enq.phone ? { phone: enq.phone } : null
+                        ].filter(Boolean)
+                    }
+                });
+
+                if (!existingReg) {
+                    const hasUser = await User.findOne({
+                        where: {
+                            role: 'student',
+                            [Op.or]: [
+                                enq.email ? { email: enq.email } : null,
+                                enq.phone ? { phone: enq.phone } : null
+                            ].filter(Boolean)
+                        }
+                    });
+
+                    const regStatus = (enq.status === 'Converted' || hasUser) ? 'approved' : 'pending';
+
+                    await Registration.create({
+                        name: enq.name,
+                        email: enq.email || `${enq.phone}@temp.com`,
+                        phone: enq.phone,
+                        class: enq.class_range,
+                        board: enq.board || 'State Board',
+                        course_interest: enq.exam_target || 'None',
+                        password: 'studentpass123',
+                        status: regStatus,
+                        token_amount: 0,
+                        created_at: enq.created_at || new Date()
+                    });
+                    console.log(`📡 Automatically backfilled missing registration queue record for student: ${enq.name}`);
+                }
+            }
+
+            // 2. Backfill from Users table (role = 'student')
+            const students = await User.findAll({ where: { role: 'student' } });
+            for (const stud of students) {
+                const existingReg = await Registration.findOne({
+                    where: {
+                        [Op.or]: [
+                            stud.email ? { email: stud.email } : null,
+                            stud.phone ? { phone: stud.phone } : null
+                        ].filter(Boolean)
+                    }
+                });
+                if (!existingReg) {
+                    // Try to find board from matching enquiry if possible
+                    let boardVal = 'State Board';
+                    if (stud.phone || stud.email) {
+                        const matchingEnq = await Enquiry.findOne({
+                            where: {
+                                [Op.or]: [
+                                    stud.email ? { email: stud.email } : null,
+                                    stud.phone ? { phone: stud.phone } : null
+                                ].filter(Boolean)
+                            }
+                        });
+                        if (matchingEnq && matchingEnq.board) {
+                            boardVal = matchingEnq.board;
+                        }
+                    }
+
+                    await Registration.create({
+                        name: stud.name,
+                        email: stud.email || `${stud.phone || 'temp'}@temp.com`,
+                        phone: stud.phone || '0000000000',
+                        class: stud.standard || '10th',
+                        board: boardVal,
+                        course_interest: 'General Admission',
+                        password: stud.password || 'studentpass123',
+                        status: stud.status === 'active' ? 'approved' : 'pending',
+                        token_amount: 0,
+                        created_at: new Date()
+                    });
+                    console.log(`📡 Automatically backfilled missing registration queue record from student User: ${stud.name}`);
+                }
+            }
+        } catch (backfillErr) {
+            console.log('Notice: Backfill migration query details:', backfillErr.message);
+        }
+
     } catch (error) {
         console.error('Unable to connect to the database:', error);
         process.exit(1);

@@ -30,7 +30,7 @@ const Batches = () => {
   });
 
   const [formData, setFormData] = useState({
-    name: `Morning - 11th - Batch 1 - ${new Date().getFullYear()}`,
+    name: `Morning - 11th - State Board - Batch 1 - ${new Date().getFullYear()}`,
     standard: '11th',
     board: 'State Board',
     timing: '',
@@ -78,10 +78,15 @@ const Batches = () => {
   const openForm = (batch = null) => {
     if (batch) {
       setEditingBatch(batch.id);
-      // Try to parse structured name (now handles standard in the name)
-      const match = batch.name.match(/^(.*?) - (.*?) - Batch (.*?) - (\d{4})$/) || batch.name.match(/^(.*?) - Batch (.*?) - (\d{4})$/);
-      if (match && match.length === 5) {
-        // Matched the new format with Standard
+      // Try to parse structured name (now handles standard and board in the name)
+      const match = batch.name.match(/^(.*?) - (.*?) - (.*?) - Batch (.*?) - (\d{4})$/)
+        || batch.name.match(/^(.*?) - (.*?) - Batch (.*?) - (\d{4})$/)
+        || batch.name.match(/^(.*?) - Batch (.*?) - (\d{4})$/);
+      if (match && match.length === 6) {
+        // Matched format with Standard and Board
+        setNameParts({ time: match[1], no: match[4], year: match[5] });
+      } else if (match && match.length === 5) {
+        // Matched format with Standard
         setNameParts({ time: match[1], no: match[3], year: match[4] });
       } else if (match && match.length === 4) {
         // Matched old format without Standard
@@ -111,7 +116,7 @@ const Batches = () => {
       setNameParts({ time: 'Morning', no: '1', year: new Date().getFullYear().toString() });
       setTimingParts({ startHour: '08', startMin: '00', startAmPm: 'AM', endHour: '10', endMin: '00', endAmPm: 'AM' });
       setFormData({
-        name: `Morning - 11th - Batch 1 - ${new Date().getFullYear()}`,
+        name: `Morning - 11th - State Board - Batch 1 - ${new Date().getFullYear()}`,
         standard: '11th',
         board: 'State Board',
         timing: '08:00 AM - 10:00 AM',
@@ -126,7 +131,7 @@ const Batches = () => {
     setNameParts(updated);
     setFormData(prev => ({
       ...prev,
-      name: `${updated.time} - ${prev.standard} - Batch ${updated.no} - ${updated.year}`
+      name: `${updated.time} - ${prev.standard} - ${prev.board || 'State Board'} - Batch ${updated.no} - ${updated.year}`
     }));
   };
 
@@ -135,7 +140,16 @@ const Batches = () => {
     setFormData(prev => ({
       ...prev,
       standard: newStandard,
-      name: `${nameParts.time} - ${newStandard} - Batch ${nameParts.no} - ${nameParts.year}`
+      name: `${nameParts.time} - ${newStandard} - ${prev.board || 'State Board'} - Batch ${nameParts.no} - ${nameParts.year}`
+    }));
+  };
+
+  const handleBoardChange = (e) => {
+    const newBoard = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      board: newBoard,
+      name: `${nameParts.time} - ${prev.standard} - ${newBoard || 'State Board'} - Batch ${nameParts.no} - ${nameParts.year}`
     }));
   };
 
@@ -339,7 +353,7 @@ const Batches = () => {
                 </div>
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Board</label>
-                  <select value={formData.board} onChange={e => setFormData({...formData, board: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
+                  <select value={formData.board} onChange={handleBoardChange} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
                     {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
