@@ -57,72 +57,72 @@ const Settings = () => {
       </div>}
 
       <div className="grid-cols-2" style={{ alignItems: 'start' }}>
-        <div className="card">
-          <h2>Brand & Identity</h2>
-          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
-            <div className="form-group">
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Institution Name</label>
-              <input 
-                type="text" 
-                name="schoolName"
-                value={settings.schoolName}
-                onChange={handleChange}
-                className="form-control"
-                style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Contact Email</label>
-              <input 
-                type="email" 
-                name="contactEmail"
-                value={settings.contactEmail}
-                onChange={handleChange}
-                className="form-control"
-                style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
-              />
-            </div>
-
-            <div className="form-group">
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Logo URL</label>
-              <div style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="card">
+            <h2>Brand & Identity</h2>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Institution Name</label>
                 <input 
                   type="text" 
-                  name="logoUrl"
-                  value={settings.logoUrl}
+                  name="schoolName"
+                  value={settings.schoolName}
                   onChange={handleChange}
                   className="form-control"
-                  placeholder="https://example.com/logo.png"
-                  style={{ flex: 1, padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
                 />
               </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Provide a valid image URL for the institution logo.</p>
-            </div>
+              
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Contact Email</label>
+                <input 
+                  type="email" 
+                  name="contactEmail"
+                  value={settings.contactEmail}
+                  onChange={handleChange}
+                  className="form-control"
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
+                />
+              </div>
 
-            <div className="form-group">
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Logo/Brand Icon (Lucide Icon Name)</label>
-              <input 
-                type="text" 
-                name="iconName"
-                value={settings.iconName || ''}
-                onChange={handleChange}
-                className="form-control"
-                placeholder="e.g. GraduationCap, School, BookOpen, Library, Award"
-                style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
-              />
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                Enter any Lucide icon name in PascalCase. Examples: <strong>GraduationCap</strong>, <strong>School</strong>, <strong>BookOpen</strong>, <strong>Library</strong>, <strong>Award</strong>.
-              </p>
-            </div>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Logo URL</label>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <input 
+                    type="text" 
+                    name="logoUrl"
+                    value={settings.logoUrl}
+                    onChange={handleChange}
+                    className="form-control"
+                    placeholder="https://example.com/logo.png"
+                    style={{ flex: 1, padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
+                  />
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Provide a valid image URL for the institution logo.</p>
+              </div>
 
-            <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '0.75rem 1.5rem' }}>
-              <Save size={18} style={{ marginRight: '0.5rem' }} /> Save Changes
-            </button>
-          </form>
-        </div>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Logo/Brand Icon (Lucide Icon Name)</label>
+                <input 
+                  type="text" 
+                  name="iconName"
+                  value={settings.iconName || ''}
+                  onChange={handleChange}
+                  className="form-control"
+                  placeholder="e.g. GraduationCap, School, BookOpen, Library, Award"
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                  Enter any Lucide icon name in PascalCase. Examples: <strong>GraduationCap</strong>, <strong>School</strong>, <strong>BookOpen</strong>, <strong>Library</strong>, <strong>Award</strong>.
+                </p>
+              </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '0.75rem 1.5rem' }}>
+                <Save size={18} style={{ marginRight: '0.5rem' }} /> Save Changes
+              </button>
+            </form>
+          </div>
+
           <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#F8FAFC', padding: '2rem' }}>
             <h3 style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '1rem', fontWeight: 600 }}>Current Logo Preview</h3>
             {settings.logoUrl && settings.logoUrl.startsWith('http') ? (
@@ -143,7 +143,9 @@ const Settings = () => {
               {settings.schoolName || 'Institute Hub'}
             </h2>
           </div>
+        </div>
 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="card">
             <h2>Standard-wise Tuition Fees</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
