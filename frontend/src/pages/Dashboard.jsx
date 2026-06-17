@@ -133,7 +133,7 @@ const Dashboard = () => {
 
       <div className="card" style={{ marginTop: '2rem' }}>
         <h2>Quick Administration</h2>
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+        <div className="flex-row-responsive" style={{ marginTop: '1rem' }}>
           <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '1rem' }} onClick={() => navigate('/registrations')}>
             <Users size={18} /> Registrations
           </button>

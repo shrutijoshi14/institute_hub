@@ -371,20 +371,20 @@ select option {
 /* Grid Layouts */
 .grid-cols-4 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
 
 .grid-cols-3 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 1.5rem;
 }
 
 .grid-cols-2 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr));
   gap: 1.5rem;
 }
 
@@ -489,7 +489,11 @@ tr:hover td {
   animation: spin 1s linear infinite;
 }
 
-/* Responsive Sidebar */
+/* Responsive Sidebar & Backdrop */
+.sidebar-backdrop {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
@@ -499,12 +503,60 @@ tr:hover td {
   .sidebar.open {
     transform: translateX(0);
   }
-  .grid-cols-4 {
-    grid-template-columns: repeat(2, 1fr);
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 5;
   }
 }
-@media (max-width: 480px) {
-  .grid-cols-4 {
-    grid-template-columns: 1fr;
+
+/* Page Content & Header Responsiveness */
+@media (max-width: 768px) {
+  .top-header {
+    padding: 1rem 1.5rem;
+  }
+  .welcome-text {
+    display: none;
+  }
+  .header-actions {
+    gap: 1rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-content {
+    padding: 1rem;
+  }
+  .logout-text {
+    display: none;
+  }
+  .logout-btn {
+    padding: 0.5rem !important;
+  }
+  .user-name, 
+  .user-id {
+    display: none;
+  }
+  .user-profile {
+    gap: 0 !important;
+  }
+}
+
+/* Flex Row Wrap Helpers for Mobile */
+.flex-row-responsive {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+@media (max-width: 640px) {
+  .flex-row-responsive {
+    flex-direction: column;
+  }
+  .flex-row-responsive button,
+  .flex-row-responsive a {
+    width: 100%;
   }
 }

@@ -13,7 +13,7 @@ const Sidebar = ({ isOpen, settings }) => {
   const BrandIcon = LucideIcons[iconName] || LucideIcons.GraduationCap;
 
   return (
-    <div className={`sidebar ${!isOpen ? 'collapsed' : ''}`}>
+    <div className={`sidebar ${isOpen ? 'open' : 'collapsed'}`}>
       <div className="sidebar-header">
         {logoUrl && logoUrl.startsWith('http') ? (
           <img src={logoUrl} alt="Logo" style={{ width: '28px', height: '28px', objectFit: 'contain', flexShrink: 0 }} />

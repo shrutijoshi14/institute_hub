@@ -33,6 +33,12 @@ const DashboardLayout = () => {
   return (
     <div className="dashboard-layout">
       <SidebarNavigation isOpen={isSidebarOpen} settings={settings} />
+      {isSidebarOpen && (
+        <div 
+          className="sidebar-backdrop" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
       <div className="main-content">
         <header className="top-header">
           <div className="search-bar" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -43,14 +49,15 @@ const DashboardLayout = () => {
             >
               <Sidebar size={22} />
             </button>
-            <span style={{color: 'var(--text-secondary)', fontSize: '0.875rem'}}>
+            <span className="welcome-text" style={{color: 'var(--text-secondary)', fontSize: '0.875rem'}}>
               Welcome back, {user?.name}! 
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+          <div className="header-actions" style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
             
             <button 
               onClick={handleLogout}
+              className="logout-btn"
               style={{ 
                 display: 'flex', alignItems: 'center', gap: '0.5rem',
                 background: '#FEE2E2', 
@@ -61,16 +68,16 @@ const DashboardLayout = () => {
               }}
             >
               <LogOut size={16} />
-              Logout
+              <span className="logout-text">Logout</span>
             </button>
 
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
               <Bell size={24} />
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+            <div className="user-profile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500, color: 'var(--text-primary)' }}>
               <UserCircle size={28} color={role === 'admin' ? 'var(--primary)' : 'var(--secondary)'} />
-              {user?.name}
-              <span style={{ fontSize: '0.7rem', opacity: 0.6 }}>ID: {user?.id}</span>
+              <span className="user-name">{user?.name}</span>
+              <span className="user-id" style={{ fontSize: '0.7rem', opacity: 0.6 }}>ID: {user?.id}</span>
             </div>
           </div>
         </header>
