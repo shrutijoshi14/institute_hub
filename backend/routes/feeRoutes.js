@@ -214,6 +214,8 @@ router.get('/all-pending', async (req, res) => {
     try {
         const titleSql = getStandardCourseTitleSqlFragment('u.standard', 'e.batch_id');
         const feeSql = getStandardFeeSqlFragment('u.standard', 'e.batch_id');
+        const isPostgres = sequelize.getDialect() === 'postgres';
+        const feePlanCast = isPostgres ? 'CAST(e.fee_plan AS VARCHAR)' : 'e.fee_plan';
         const query = `
             SELECT 
                 u.id as student_id,
@@ -243,7 +245,7 @@ router.get('/all-pending', async (req, res) => {
                     ${feeSql},
                     50000
                 ) as totalFee,
-                COALESCE(e.fee_plan, 'N/A') as fee_plan,
+                COALESCE(${feePlanCast}, 'N/A') as fee_plan,
                 COALESCE(SUM(fp.amount_paid), 0) as paid,
                 (
                     COALESCE(
