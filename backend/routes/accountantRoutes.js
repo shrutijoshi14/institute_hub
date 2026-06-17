@@ -183,7 +183,7 @@ router.get('/pending-fees', async (req, res) => {
             LEFT JOIN fee_payments f ON u.id = f.student_id
             WHERE u.role = 'student'
             GROUP BY u.id, u.name, u.phone, c.title, c.fees
-            HAVING pending_fees > 0
+            HAVING (c.fees - COALESCE(SUM(f.amount_paid), 0)) > 0
         `, { type: sequelize.QueryTypes.SELECT });
         res.json(pending);
     } catch (err) {
