@@ -28,7 +28,16 @@ const Register = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [settings, setSettings] = useState({ schoolName: 'Institute Hub', logoUrl: '', iconName: 'GraduationCap' });
+  const [settings, setSettings] = useState({ 
+    schoolName: 'Institute Hub', 
+    logoUrl: '', 
+    iconName: 'GraduationCap',
+    standards: [],
+    boards: [],
+    exams: [],
+    boardsByStandard: {},
+    examsByStandard: {}
+  });
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   useEffect(() => {
@@ -148,6 +157,9 @@ const Register = () => {
       </div>
     );
   }
+
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoardsByStandard = settings?.boardsByStandard && Object.keys(settings.boardsByStandard).length > 0 ? settings.boardsByStandard : BOARDS_BY_STANDARD;
 
   return (
     <div style={{ 
@@ -281,7 +293,7 @@ const Register = () => {
                   value={formData.standard}
                   onChange={(e) => {
                     const newStd = e.target.value;
-                    const availableBoards = [...new Set(courses.filter(c => c.class_range === newStd).map(c => c.board))];
+                    const availableBoards = activeBoardsByStandard[newStd] || [];
                     setFormData({
                       ...formData, 
                       standard: newStd,
@@ -291,7 +303,7 @@ const Register = () => {
                   style={{ width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.95rem', backgroundColor: 'white' }}
                 >
                   <option value="">Select Class</option>
-                  {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className="form-group">
@@ -303,7 +315,7 @@ const Register = () => {
                   style={{ width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.95rem', backgroundColor: 'white' }}
                 >
                   <option value="">Select Board</option>
-                  {[...new Set(courses.filter(c => c.class_range === formData.standard).map(c => c.board))].map(b => <option key={b} value={b}>{b}</option>)}
+                  {(activeBoardsByStandard[formData.standard] || []).map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
             </div>

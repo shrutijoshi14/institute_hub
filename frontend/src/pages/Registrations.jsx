@@ -14,6 +14,32 @@ const Registrations = () => {
   const [selectedBoard, setSelectedBoard] = useState('All');
   const [selectedExam, setSelectedExam] = useState('All');
 
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
+  const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
+  const activeBoardsByStandard = settings?.boardsByStandard && Object.keys(settings.boardsByStandard).length > 0 ? settings.boardsByStandard : BOARDS_BY_STANDARD;
+
+  const openNewRegistration = () => {
+    const defaultStd = activeStandards[0] || '5th';
+    const defaultBoard = (activeBoardsByStandard[defaultStd] || [])[0] || 'State Board';
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      class: defaultStd,
+      board: defaultBoard,
+      course_interest: 'None',
+      password: 'studentpass123',
+      fee_plan: 'One-time',
+      total_installments: 4,
+      token_amount: 0,
+      username: '',
+      parent_username: '',
+      parent_password: ''
+    });
+    setShowModal(true);
+  };
+
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -97,12 +123,14 @@ const Registrations = () => {
           setMsg(`✅ Registration Successful. Student Account and Fees Auto-Generated.`);
           setShowModal(false);
           // Set form to initial state completely
+          const defaultStd = activeStandards[0] || '5th';
+          const defaultBoard = (activeBoardsByStandard[defaultStd] || [])[0] || 'State Board';
           setFormData({
             name: '',
             email: '',
             phone: '',
-            class: '5th',
-            board: 'State Board',
+            class: defaultStd,
+            board: defaultBoard,
             course_interest: 'None',
             password: 'studentpass123',
             fee_plan: 'One-time',
@@ -126,7 +154,7 @@ const Registrations = () => {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Registrations Queue</h1>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn btn-primary" onClick={openNewRegistration}>
           <Plus size={18} /> New Application
         </button>
       </div>
@@ -153,7 +181,7 @@ const Registrations = () => {
                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
              >
                <option value="All">All Standards</option>
-               {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+               {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
              </select>
              
              <select 
@@ -162,16 +190,16 @@ const Registrations = () => {
                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
              >
                <option value="All">All Boards</option>
-               {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+               {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
              </select>
-
+ 
              <select 
                value={selectedExam} 
                onChange={(e) => setSelectedExam(e.target.value)}
                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
              >
                <option value="All">All Exams</option>
-               {EXAMS.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+               {activeExams.map(ex => <option key={ex} value={ex}>{ex}</option>)}
              </select>
           </div>
         </div>
@@ -347,7 +375,7 @@ const Registrations = () => {
                     value={formData.class} 
                     onChange={e => {
                       const newClass = e.target.value;
-                      const availableBoards = BOARDS_BY_STANDARD[newClass] || [];
+                      const availableBoards = activeBoardsByStandard[newClass] || [];
                       setFormData({
                         ...formData, 
                         class: newClass,
@@ -356,7 +384,7 @@ const Registrations = () => {
                     }} 
                     style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white' }}
                   >
-                    {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
@@ -366,7 +394,7 @@ const Registrations = () => {
                     onChange={e => setFormData({...formData, board: e.target.value})} 
                     style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white' }}
                   >
-                    {(BOARDS_BY_STANDARD[formData.class] || []).map(b => <option key={b} value={b}>{b}</option>)}
+                    {(activeBoardsByStandard[formData.class] || []).map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
               </div>

@@ -16,12 +16,15 @@ const StudentManagement = () => {
   const [deletingName, setDeletingName] = useState('');
   
   const [batches, setBatches] = useState([]);
+  const [settings, setSettings] = useState(null);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '',
     standard: '', parent_name: '', parent_phone: '', address: '', dob: '', blood_group: '',
     batch_id: '', fee_plan: 'EMI', total_installments: 4, token_amount: '',
     username: '', password: '', parent_username: '', parent_password: ''
   });
+
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
 
   const fetchStudents = async () => {
     try {
@@ -44,6 +47,15 @@ const StudentManagement = () => {
   useEffect(() => {
     fetchStudents();
     fetchBatches();
+    const fetchSettings = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/settings');
+        setSettings(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchSettings();
   }, []);
 
   useEffect(() => {
@@ -169,7 +181,7 @@ const StudentManagement = () => {
                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '160px' }}
              >
                <option value="All">All Standards</option>
-               {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+               {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
              </select>
           </div>
         </div>
@@ -252,7 +264,7 @@ const StudentManagement = () => {
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Standard/Class</label>
                   <select value={formData.standard} onChange={e => setFormData({...formData, standard: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white' }}>
                     <option value="">Select Standard</option>
-                    {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="form-group">

@@ -33,6 +33,12 @@ const Enquiries = () => {
   const [selectedBoard, setSelectedBoard] = useState('All');
   const [selectedExam, setSelectedExam] = useState('All');
 
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
+  const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
+  const activeBoardsByStandard = settings?.boardsByStandard && Object.keys(settings.boardsByStandard).length > 0 ? settings.boardsByStandard : BOARDS_BY_STANDARD;
+  const activeExamsByStandard = settings?.examsByStandard && Object.keys(settings.examsByStandard).length > 0 ? settings.examsByStandard : EXAMS_BY_STANDARD;
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -126,7 +132,10 @@ const Enquiries = () => {
       });
     } else {
       setEditingId(null);
-      setFormData({ name: '', email: '', phone: '', class_range: '9th', board: 'State Board', exam_target: 'None', status: 'New', message: '' });
+      const defaultStd = activeStandards[0] || '9th';
+      const defaultBoard = (activeBoardsByStandard[defaultStd] || [])[0] || 'State Board';
+      const defaultExam = (activeExamsByStandard[defaultStd] || [])[0] || 'None';
+      setFormData({ name: '', email: '', phone: '', class_range: defaultStd, board: defaultBoard, exam_target: defaultExam, status: 'New', message: '' });
     }
     setFormError('');
     setShowModal(true);
@@ -134,8 +143,8 @@ const Enquiries = () => {
 
   const openConvertModal = (enq) => {
     setConvertingEnq(enq);
-    const initialStd = enq.class_range || '9th';
-    const initialBoard = enq.board || 'State Board';
+    const initialStd = enq.class_range || activeStandards[0] || '9th';
+    const initialBoard = enq.board || (activeBoardsByStandard[initialStd] || [])[0] || 'State Board';
     const filtered = batches.filter(b => b.standard === initialStd && b.board === initialBoard);
     setConvertData(prev => ({
       ...prev,
@@ -337,7 +346,7 @@ const Enquiries = () => {
                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
              >
                <option value="All">All Standards</option>
-               {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+               {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
              </select>
              
              <select 
@@ -346,7 +355,7 @@ const Enquiries = () => {
                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
              >
                <option value="All">All Boards</option>
-               {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+               {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
              </select>
 
              <select 
@@ -355,7 +364,7 @@ const Enquiries = () => {
                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
              >
                <option value="All">All Exams</option>
-               {EXAMS.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+               {activeExams.map(ex => <option key={ex} value={ex}>{ex}</option>)}
              </select>
           </div>
         </div>
@@ -441,7 +450,7 @@ const Enquiries = () => {
                       value={convertData.standard} 
                       onChange={e => {
                         const newStd = e.target.value;
-                        const boards = BOARDS_BY_STANDARD[newStd] || [];
+                        const boards = activeBoardsByStandard[newStd] || [];
                         const firstBoard = boards.length > 0 ? boards[0] : '';
                         const filtered = batches.filter(b => b.standard === newStd && b.board === firstBoard);
                         setConvertData({
@@ -453,7 +462,7 @@ const Enquiries = () => {
                       }}
                       style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}
                     >
-                      {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                      {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div className="form-group">
@@ -462,7 +471,7 @@ const Enquiries = () => {
                       value={convertData.board} 
                       onChange={e => {
                         const newBoard = e.target.value;
-                        const currentStd = convertData.standard || '9th';
+                        const currentStd = convertData.standard || activeStandards[0] || '9th';
                         const filtered = batches.filter(b => b.standard === currentStd && b.board === newBoard);
                         setConvertData({
                           ...convertData, 
@@ -474,8 +483,8 @@ const Enquiries = () => {
                     >
                       <option value="">Select Board</option>
                       {(() => {
-                        const currentStd = convertData.standard || '9th';
-                        const boards = BOARDS_BY_STANDARD[currentStd] || [];
+                        const currentStd = convertData.standard || activeStandards[0] || '9th';
+                        const boards = activeBoardsByStandard[currentStd] || [];
                         return boards.map(b => <option key={b} value={b}>{b}</option>);
                       })()}
                     </select>
@@ -616,24 +625,24 @@ const Enquiries = () => {
                     value={formData.class_range} 
                     onChange={e => {
                       const newClass = e.target.value;
-                      const boards = BOARDS_BY_STANDARD[newClass] || [];
-                      const exams = EXAMS_BY_STANDARD[newClass] || [];
+                      const boards = activeBoardsByStandard[newClass] || [];
+                      const exams = activeExamsByStandard[newClass] || [];
                       setFormData({
                         ...formData, 
                         class_range: newClass,
-                        board: boards.length > 0 ? boards[0] : 'State Board',
-                        exam_target: exams.length > 0 ? exams[0] : 'None'
+                        board: boards.length > 0 ? boards[0] : (activeBoards[0] || 'State Board'),
+                        exam_target: exams.length > 0 ? exams[0] : (activeExams[0] || 'None')
                       });
                     }} 
                     style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}
                   >
-                    {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>School Board / Stream</label>
                   <select value={formData.board} onChange={e => setFormData({...formData, board: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
-                    {(BOARDS_BY_STANDARD[formData.class_range] || []).map(b => <option key={b} value={b}>{b}</option>)}
+                    {(activeBoardsByStandard[formData.class_range] || []).map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
               </div>
@@ -641,7 +650,7 @@ const Enquiries = () => {
               <div className="form-group">
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>Target Examination</label>
                 <select value={formData.exam_target} onChange={e => setFormData({...formData, exam_target: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
-                  {(EXAMS_BY_STANDARD[formData.class_range] || []).map(ex => <option key={ex} value={ex}>{ex}</option>)}
+                  {(activeExamsByStandard[formData.class_range] || []).map(ex => <option key={ex} value={ex}>{ex}</option>)}
                 </select>
               </div>
 

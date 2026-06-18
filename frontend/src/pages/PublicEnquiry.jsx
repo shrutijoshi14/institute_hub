@@ -37,6 +37,15 @@ const PublicEnquiry = () => {
                 const res = await axios.get('http://localhost:5000/api/settings');
                 if (res.data) {
                     setSettings(res.data);
+                    const activeStds = res.data.standards && res.data.standards.length > 0 ? res.data.standards : STANDARDS;
+                    const activeBdsByStd = res.data.boardsByStandard && Object.keys(res.data.boardsByStandard).length > 0 ? res.data.boardsByStandard : BOARDS_BY_STANDARD;
+                    const defaultStd = activeStds[0] || '9th';
+                    const defaultBoard = (activeBdsByStd[defaultStd] || [])[0] || 'State Board';
+                    setFormData(prev => ({
+                        ...prev,
+                        class_range: defaultStd,
+                        board: defaultBoard
+                    }));
                 }
             } catch (err) {
                 console.error('Failed to fetch settings', err);
@@ -138,6 +147,9 @@ const PublicEnquiry = () => {
             </div>
         );
     }
+
+    const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+    const activeBoardsByStandard = settings?.boardsByStandard && Object.keys(settings.boardsByStandard).length > 0 ? settings.boardsByStandard : BOARDS_BY_STANDARD;
 
     return (
         <div style={{ 
@@ -250,12 +262,12 @@ const PublicEnquiry = () => {
 
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
                             <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Standard</label>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.8', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Standard</label>
                                 <select 
                                     value={formData.class_range} 
                                     onChange={e => {
                                         const newStd = e.target.value;
-                                        const availableBoards = [...new Set(courses.filter(c => c.class_range === newStd).map(c => c.board))];
+                                        const availableBoards = activeBoardsByStandard[newStd] || [];
                                         setFormData({
                                             ...formData, 
                                             class_range: newStd,
@@ -264,11 +276,11 @@ const PublicEnquiry = () => {
                                     }}
                                     style={{ width: '100%', padding: '0.75rem 2.5rem 0.75rem 1rem', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.95rem', backgroundColor: 'white' }}
                                 >
-                                    {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Board</label>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: 600, fontSize: '0.8', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Board</label>
                                 <select 
                                     value={formData.board} 
                                     onChange={e => setFormData({...formData, board: e.target.value})}
@@ -276,7 +288,7 @@ const PublicEnquiry = () => {
                                     disabled={fetching}
                                 >
                                     {fetching ? <option>Loading...</option> : (() => {
-                                        const availableBoards = [...new Set(courses.filter(c => c.class_range === formData.class_range).map(c => c.board))];
+                                        const availableBoards = activeBoardsByStandard[formData.class_range] || [];
                                         if (availableBoards.length === 0) return <option value="">No boards available</option>;
                                         return availableBoards.map(b => <option key={b} value={b}>{b}</option>);
                                     })()}

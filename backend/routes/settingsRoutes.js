@@ -17,6 +17,70 @@ const DEFAULT_STANDARD_FEES = {
     "Diploma / Vocational": 45000
 };
 
+const DEFAULT_STANDARDS = [
+    '5th', 
+    '6th', 
+    '7th', 
+    '8th', 
+    '9th', 
+    'SSC (10th)', 
+    '11th', 
+    'HSC (12th)',
+    'Diploma / Vocational'
+];
+
+const DEFAULT_BOARDS = [
+    'CBSE', 
+    'ICSE', 
+    'CISCE', 
+    'State Board', 
+    'NIOS',
+    'IB',
+    'IGCSE',
+    'Science (PCM)',
+    'Science (PCB)',
+    'Science (PCMB)',
+    'Commerce',
+    'Arts / Humanities',
+    'Polytechnic',
+    'ITI',
+    'Diploma Engineering'
+];
+
+const DEFAULT_EXAMS = [
+    'None', 
+    'SOF Olympiads', 'NSO (Science)', 'IMO (Maths)', 'IEO (English)', 'NSTSE', 'Spell Bee', 'NTSE Foundation',
+    'NTSE', 'Olympiads', 'JEE Foundation', 'NEET Foundation', 'NMMS', 'NSEJS',
+    'JEE Main', 'JEE Advanced', 'MHT CET', 'BITSAT', 'VITEEE', 'SRMJEEE', 'NEET', 'AIIMS', 'JIPMER', 'IISER Aptitude Test', 'NEST', 'KVPY', 'NDA',
+    'CA Foundation', 'CS Foundation', 'CMA', 'CUET', 'SET', 'NPAT', 'BBA Entrance', 'B.Com Entrance', 'Banking Exams',
+    'UPSC Foundation', 'MPSC', 'SSC', 'CLAT', 'AILET', 'NID', 'NIFT', 'UCEED', 'BA Entrance Exams',
+    'Polytechnic CET', 'ITI Entrance'
+];
+
+const DEFAULT_BOARDS_BY_STANDARD = {
+    '5th': ['CBSE', 'ICSE', 'CISCE', 'State Board', 'NIOS', 'IB', 'IGCSE'],
+    '6th': ['CBSE', 'ICSE', 'CISCE', 'State Board', 'NIOS', 'IB', 'IGCSE'],
+    '7th': ['CBSE', 'ICSE', 'CISCE', 'State Board', 'NIOS', 'IB', 'IGCSE'],
+    '8th': ['CBSE', 'ICSE', 'CISCE', 'State Board', 'NIOS', 'IB', 'IGCSE'],
+    '9th': ['CBSE', 'ICSE', 'CISCE', 'State Board', 'NIOS', 'IB', 'IGCSE'],
+    'SSC (10th)': ['CBSE', 'ICSE', 'CISCE', 'State Board', 'NIOS', 'IB', 'IGCSE'],
+    '11th': ['Science (PCM)', 'Science (PCB)', 'Science (PCMB)', 'Commerce', 'Arts / Humanities'],
+    'HSC (12th)': ['Science (PCM)', 'Science (PCB)', 'Science (PCMB)', 'Commerce', 'Arts / Humanities'],
+    'Diploma / Vocational': ['Polytechnic', 'ITI', 'Diploma Engineering']
+};
+
+const DEFAULT_EXAMS_BY_STANDARD = {
+    '5th': ['None', 'SOF Olympiads', 'NSO (Science)', 'IMO (Maths)', 'IEO (English)', 'NSTSE', 'Spell Bee', 'NTSE Foundation'],
+    '6th': ['None', 'SOF Olympiads', 'NSO (Science)', 'IMO (Maths)', 'IEO (English)', 'NSTSE', 'Spell Bee', 'NTSE Foundation'],
+    '7th': ['None', 'SOF Olympiads', 'NSO (Science)', 'IMO (Maths)', 'IEO (English)', 'NSTSE', 'Spell Bee', 'NTSE Foundation'],
+    '8th': ['None', 'SOF Olympiads', 'NSO (Science)', 'IMO (Maths)', 'IEO (English)', 'NSTSE', 'Spell Bee', 'NTSE Foundation'],
+    '9th': ['None', 'NTSE', 'Olympiads', 'JEE Foundation', 'NEET Foundation', 'NMMS', 'NSEJS'],
+    'SSC (10th)': ['None', 'NTSE', 'Olympiads', 'JEE Foundation', 'NEET Foundation', 'NMMS', 'NSEJS'],
+    '11th': ['None', 'JEE Main', 'JEE Advanced', 'MHT CET', 'BITSAT', 'VITEEE', 'SRMJEEE', 'NEET', 'AIIMS', 'JIPMER', 'IISER Aptitude Test', 'NEST', 'KVPY', 'NDA', 'CA Foundation', 'CS Foundation', 'CMA', 'CUET', 'SET', 'NPAT', 'BBA Entrance', 'B.Com Entrance', 'Banking Exams', 'UPSC Foundation', 'MPSC', 'SSC', 'CLAT', 'AILET', 'NID', 'NIFT', 'UCEED', 'BA Entrance Exams'],
+    'HSC (12th)': ['None', 'JEE Main', 'JEE Advanced', 'MHT CET', 'BITSAT', 'VITEEE', 'SRMJEEE', 'NEET', 'AIIMS', 'JIPMER', 'IISER Aptitude Test', 'NEST', 'KVPY', 'NDA', 'CA Foundation', 'CS Foundation', 'CMA', 'CUET', 'SET', 'NPAT', 'BBA Entrance', 'B.Com Entrance', 'Banking Exams', 'UPSC Foundation', 'MPSC', 'SSC', 'CLAT', 'AILET', 'NID', 'NIFT', 'UCEED', 'BA Entrance Exams'],
+    'Diploma / Vocational': ['None', 'Polytechnic CET', 'ITI Entrance']
+};
+
 // Helper to read settings
 const readSettings = () => {
     let settings = { 
@@ -25,7 +89,12 @@ const readSettings = () => {
         contactEmail: 'info@institute.com', 
         iconName: 'GraduationCap',
         standardFees: DEFAULT_STANDARD_FEES,
-        boardExamCosts: []
+        boardExamCosts: [],
+        standards: DEFAULT_STANDARDS,
+        boards: DEFAULT_BOARDS,
+        exams: DEFAULT_EXAMS,
+        boardsByStandard: DEFAULT_BOARDS_BY_STANDARD,
+        examsByStandard: DEFAULT_EXAMS_BY_STANDARD
     };
     if (fs.existsSync(SETTINGS_FILE)) {
         try {
@@ -40,6 +109,21 @@ const readSettings = () => {
     }
     if (!settings.boardExamCosts) {
         settings.boardExamCosts = [];
+    }
+    if (!settings.standards) {
+        settings.standards = DEFAULT_STANDARDS;
+    }
+    if (!settings.boards) {
+        settings.boards = DEFAULT_BOARDS;
+    }
+    if (!settings.exams) {
+        settings.exams = DEFAULT_EXAMS;
+    }
+    if (!settings.boardsByStandard) {
+        settings.boardsByStandard = DEFAULT_BOARDS_BY_STANDARD;
+    }
+    if (!settings.examsByStandard) {
+        settings.examsByStandard = DEFAULT_EXAMS_BY_STANDARD;
     }
     return settings;
 };
@@ -65,7 +149,19 @@ router.get('/', (req, res) => {
 // @desc    Update School Settings
 router.put('/', (req, res) => {
     try {
-        const { schoolName, logoUrl, contactEmail, iconName, standardFees, boardExamCosts } = req.body;
+        const { 
+            schoolName, 
+            logoUrl, 
+            contactEmail, 
+            iconName, 
+            standardFees, 
+            boardExamCosts,
+            standards,
+            boards,
+            exams,
+            boardsByStandard,
+            examsByStandard
+        } = req.body;
         const currentSettings = readSettings();
         
         const newSettings = {
@@ -75,7 +171,12 @@ router.put('/', (req, res) => {
             contactEmail: contactEmail !== undefined ? contactEmail : currentSettings.contactEmail,
             iconName: iconName !== undefined ? iconName : currentSettings.iconName,
             standardFees: standardFees !== undefined ? standardFees : currentSettings.standardFees,
-            boardExamCosts: boardExamCosts !== undefined ? boardExamCosts : currentSettings.boardExamCosts
+            boardExamCosts: boardExamCosts !== undefined ? boardExamCosts : currentSettings.boardExamCosts,
+            standards: standards !== undefined ? standards : currentSettings.standards,
+            boards: boards !== undefined ? boards : currentSettings.boards,
+            exams: exams !== undefined ? exams : currentSettings.exams,
+            boardsByStandard: boardsByStandard !== undefined ? boardsByStandard : currentSettings.boardsByStandard,
+            examsByStandard: examsByStandard !== undefined ? examsByStandard : currentSettings.examsByStandard
         };
 
         writeSettings(newSettings);
