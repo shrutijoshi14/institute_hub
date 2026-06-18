@@ -60,9 +60,10 @@ router.post('/', async (req, res) => {
 // @desc    Get all enquiries for admin
 router.get('/', async (req, res) => {
     try {
-        const data = await Enquiry.findAll({ order: [['created_at', 'DESC']] });
-        res.json(data);
+        const enquiries = await Enquiry.findAll({ order: [['created_at', 'DESC']] });
+        res.json(enquiries);
     } catch (err) {
+        console.error(err);
         res.status(500).send('Server Error');
     }
 });
@@ -293,9 +294,52 @@ router.delete('/:id', async (req, res) => {
         const enquiry = await Enquiry.findByPk(req.params.id);
         if (!enquiry) return res.status(404).json({ msg: 'Enquiry not found' });
         
+        const User = require('../models/User');
+        const { Op } = require('sequelize');
+        
+        const searchOr = [];
+        if (enquiry.email) searchOr.push({ email: enquiry.email });
+        if (enquiry.phone) searchOr.push({ phone: enquiry.phone });
+        if (enquiry.name) searchOr.push({ name: enquiry.name });
+
+        if (searchOr.length > 0) {
+            const studentUser = await User.findOne({
+                where: {
+                    role: 'student',
+                    [Op.or]: searchOr
+                }
+            });
+
+            if (studentUser) {
+                const Enrollment = require('../models/Enrollment');
+                const FeePayment = require('../models/FeePayment');
+                const Attendance = require('../models/Attendance');
+                const Result = require('../models/Result');
+                const IssuedBook = require('../models/IssuedBook');
+                const TransportAssignment = require('../models/TransportAssignment');
+                const Certificate = require('../models/Certificate');
+                const Registration = require('../models/Registration');
+
+                await User.destroy({ where: { parent_id: studentUser.id, role: 'parent' } });
+                await Enrollment.destroy({ where: { student_id: studentUser.id } });
+                await FeePayment.destroy({ where: { student_id: studentUser.id } });
+                await Attendance.destroy({ where: { student_id: studentUser.id } });
+                await Result.destroy({ where: { student_id: studentUser.id } });
+                await IssuedBook.destroy({ where: { student_id: studentUser.id } });
+                await TransportAssignment.destroy({ where: { student_id: studentUser.id } });
+                await Certificate.destroy({ where: { student_id: studentUser.id } });
+                await Registration.destroy({ where: { [Op.or]: searchOr } });
+                await User.destroy({ where: { id: studentUser.id } });
+            } else {
+                const Registration = require('../models/Registration');
+                await Registration.destroy({ where: { [Op.or]: searchOr } });
+            }
+        }
+
         await enquiry.destroy();
-        res.json({ msg: 'Enquiry deleted' });
+        res.json({ msg: 'Enquiry and associated records deleted' });
     } catch (err) {
+        console.error(err);
         res.status(500).send('Server Error');
     }
 });

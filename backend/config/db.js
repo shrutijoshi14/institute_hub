@@ -245,6 +245,110 @@ const connectDB = async () => {
                     console.log(`📡 Automatically backfilled missing registration queue record from student User: ${stud.name}`);
                 }
             }
+
+            // 3. Backfill Users from approved Registrations
+            const approvedRegs = await Registration.findAll({ where: { status: 'approved' } });
+            for (const reg of approvedRegs) {
+                const hasUser = await User.findOne({
+                    where: {
+                        role: 'student',
+                        [Op.or]: [
+                            reg.email ? { email: reg.email } : null,
+                            reg.phone ? { phone: reg.phone } : null
+                        ].filter(Boolean)
+                    }
+                });
+
+                if (!hasUser) {
+                    console.log(`⚙️ DB Auto-Healing: Found approved registration [${reg.name}] without student user. Rebuilding account...`);
+                    
+                    const { getDomain } = require('./domainHelper');
+                    
+                    // Generate sequential credentials helper
+                    const getNextUsername = async (role) => {
+                        const count = await User.count({ where: { role } });
+                        return `${role}${String(count + 1).padStart(2, '0')}`;
+                    };
+
+                    const sUsername = await getNextUsername('student');
+                    const pUsername = await getNextUsername('parent');
+                    const sPassword = reg.password || 'studentpass123';
+                    const pPassword = `Parent@${sUsername.slice(7) || '01'}`;
+
+                    // Create Student User
+                    const newStudent = await User.create({
+                        name: reg.name,
+                        email: reg.email || `${reg.phone}@${getDomain()}`,
+                        password: sPassword,
+                        role: 'student',
+                        phone: reg.phone,
+                        username: sUsername,
+                        standard: reg.class || '9th',
+                        parent_name: reg.name + ' Parent',
+                        parent_phone: reg.phone,
+                        address: 'Restored from registration backup',
+                        status: 'active'
+                    });
+
+                    // Create Parent User
+                    await User.create({
+                        name: reg.name + ' Parent',
+                        email: `parent_${newStudent.id}@${getDomain()}`,
+                        password: pPassword,
+                        role: 'parent',
+                        phone: reg.phone,
+                        parent_id: newStudent.id,
+                        username: pUsername,
+                        status: 'active'
+                    });
+
+                    // Rebuild Enrollment
+                    const Enrollment = require('../models/Enrollment');
+                    const Course = require('../models/Course');
+                    const Batch = require('../models/Batch');
+
+                    let courseId = 1;
+                    const matchedCourse = await Course.findOne({ where: { title: reg.course_interest } });
+                    if (matchedCourse) {
+                        courseId = matchedCourse.id;
+                    }
+
+                    let batchId = null;
+                    const matchedBatch = await Batch.findOne({ where: { standard: reg.class } });
+                    if (matchedBatch) {
+                        batchId = matchedBatch.id;
+                    }
+
+                    const { getStandardFee } = require('../utils/feeHelper');
+                    const totalFees = getStandardFee(reg.class, matchedCourse);
+                    const installments = 4;
+                    const instAmount = (totalFees - parseFloat(reg.token_amount || 0)) / installments;
+
+                    await Enrollment.create({
+                        student_id: newStudent.id,
+                        batch_id: batchId,
+                        course_id: courseId,
+                        batch_year: '2025-26',
+                        fee_plan: 'EMI',
+                        total_installments: installments,
+                        installment_amount: instAmount,
+                        next_due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                    });
+
+                    // Rebuild FeePayment
+                    if (parseFloat(reg.token_amount) > 0) {
+                        const FeePayment = require('../models/FeePayment');
+                        await FeePayment.create({
+                            student_id: newStudent.id,
+                            amount_paid: reg.token_amount,
+                            payment_date: new Date().toISOString().split('T')[0],
+                            payment_mode: 'Cash'
+                        });
+                    }
+
+                    console.log(`✅ Successfully auto-healed student user [${reg.name}] (Student ID: ${newStudent.id})`);
+                }
+            }
         } catch (backfillErr) {
             console.log('Notice: Backfill migration query details:', backfillErr.message);
         }

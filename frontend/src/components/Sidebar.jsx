@@ -40,62 +40,84 @@ const Sidebar = ({ isOpen, settings }) => {
           </span>
         </NavLink>
 
-        {/* Admin Only Links */}
-        {role === 'admin' && (
-          <>
-            <NavLink to="/enquiries" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <MessageSquare size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Enquiries</span>
-            </NavLink>
-            <NavLink to="/registrations" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <UserPlus size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Registrations</span>
-            </NavLink>
-            <NavLink to="/students" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Users size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Student Directory</span>
-            </NavLink>
-            <NavLink to="/faculty" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <GraduationCap size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Faculty</span>
-            </NavLink>
-            <NavLink to="/batches" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Users size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Batches</span>
-            </NavLink>
-            <NavLink to="/syllabus" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <BookOpen size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Syllabus Master</span>
-            </NavLink>
-            <NavLink to="/admin/syllabus-tracker" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <ClipboardList size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Syllabus Progress</span>
-            </NavLink>
-            <NavLink to="/admin/reports" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <BarChart size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Analytics & Reports</span>
-            </NavLink>
-            <NavLink to="/admin/fees" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <DollarSign size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Fee Management</span>
-            </NavLink>
-            <NavLink to="/admin/attendance" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <ClipboardList size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Attendance</span>
-            </NavLink>
-            <NavLink to="/daily-tracker" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <ClipboardList size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Daily Tracker</span>
-            </NavLink>
-            <NavLink to="/admin/results" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <FileText size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Results</span>
-            </NavLink>
-            <NavLink to="/users" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Shield size={20} style={{ flexShrink: 0 }} />
-              <span className="sidebar-text">Portal Access</span>
-            </NavLink>
-          </>
+        {/* Administrative and Staff Links */}
+        {['admin', 'super-admin', 'receptionist'].includes(role) && (
+          <NavLink to="/enquiries" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <MessageSquare size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Enquiries</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin', 'receptionist'].includes(role) && (
+          <NavLink to="/registrations" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <UserPlus size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Registrations</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin', 'receptionist', 'accountant', 'librarian', 'transport-manager'].includes(role) && (
+          <NavLink to="/students" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Users size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Student Directory</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/faculty" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <GraduationCap size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Faculty</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin', 'receptionist'].includes(role) && (
+          <NavLink to="/batches" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Users size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Batches</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/syllabus" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <BookOpen size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Syllabus Master</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/admin/syllabus-tracker" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <ClipboardList size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Syllabus Progress</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/admin/reports" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <BarChart size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Analytics & Reports</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin', 'accountant'].includes(role) && (
+          <NavLink to="/admin/fees" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <DollarSign size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Fee Management</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/admin/attendance" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <ClipboardList size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Attendance</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/daily-tracker" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <ClipboardList size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Daily Tracker</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/admin/results" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <FileText size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Results</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/users" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Shield size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Portal Access</span>
+          </NavLink>
         )}
 
         {(role === 'admin' || role === 'super-admin') && (

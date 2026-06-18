@@ -73,6 +73,20 @@ router.post('/register', async (req, res) => {
 // @desc    Get detailed profile of a student
 router.get('/student-profile/:id', async (req, res) => {
     try {
+        const studentId = req.params.id;
+        const callerId = req.headers['x-user-id'];
+        const callerRole = req.headers['x-user-role'];
+
+        if (callerRole === 'student' && String(studentId) !== String(callerId)) {
+            return res.status(403).json({ msg: 'Access Denied: Cannot view other student\'s profile' });
+        }
+        if (callerRole === 'parent') {
+            const parent = await User.findByPk(callerId);
+            if (!parent || String(parent.parent_id) !== String(studentId)) {
+                return res.status(403).json({ msg: 'Access Denied: Cannot view other student\'s profile' });
+            }
+        }
+
         const Batch = require('../models/Batch');
         const FeePayment = require('../models/FeePayment');
         const user = await User.findByPk(req.params.id, {
@@ -99,7 +113,8 @@ router.get('/student-profile/:id', async (req, res) => {
 // @desc    Get all users, optionally filter by role (e.g. ?role=student)
 router.get('/users', async (req, res) => {
     try {
-        const query = req.query.role ? { role: req.query.role } : {};
+        let query = req.query.role ? { role: req.query.role } : {};
+
         const users = await User.findAll({ 
             where: query,
             include: req.query.role === 'student' ? [
@@ -214,6 +229,38 @@ router.post('/users', async (req, res) => {
                 parent_id: newUser.id,
                 username: resolvedParentUsername,
                 status: 'active'
+            });
+
+            // Create corresponding approved Registration record
+            const Registration = require('../models/Registration');
+            await Registration.create({
+                name,
+                email: email || `${phone}@${getDomain()}`,
+                phone: phone || '0000000000',
+                class: standard || '9th',
+                board: req.body.board || 'State Board',
+                course_interest: req.body.course_interest || 'General Admission',
+                password: password || 'defaultpass123',
+                status: 'approved',
+                token_amount: token_amount || 0
+            });
+
+            // Create corresponding Converted Enquiry record
+            const Enquiry = require('../models/Enquiry');
+            await Enquiry.create({
+                name,
+                email: email || `${phone}@${getDomain()}`,
+                phone: phone || '0000000000',
+                class_range: standard || '9th',
+                board: req.body.board || 'State Board',
+                exam_target: req.body.exam_target || 'None',
+                message: 'Manually added via Student Directory',
+                status: 'Converted',
+                parent_name: parent_name || '',
+                parent_phone: parent_phone || '',
+                address: address || '',
+                dob: dob || null,
+                blood_group: blood_group || ''
             });
         }
 
@@ -370,8 +417,56 @@ router.delete('/users/:id', async (req, res) => {
     try {
         const user = await User.findByPk(req.params.id);
         if (!user) return res.status(404).json({ msg: 'User not found' });
+
+        if (user.role === 'student') {
+            const Enrollment = require('../models/Enrollment');
+            const FeePayment = require('../models/FeePayment');
+            const Attendance = require('../models/Attendance');
+            const Result = require('../models/Result');
+            const IssuedBook = require('../models/IssuedBook');
+            const TransportAssignment = require('../models/TransportAssignment');
+            const Certificate = require('../models/Certificate');
+            const Registration = require('../models/Registration');
+            const Enquiry = require('../models/Enquiry');
+
+            // 1. Delete Parent User(s)
+            await User.destroy({ where: { parent_id: user.id, role: 'parent' } });
+
+            // 2. Delete Enrollment
+            await Enrollment.destroy({ where: { student_id: user.id } });
+
+            // 3. Delete Fee Payments
+            await FeePayment.destroy({ where: { student_id: user.id } });
+
+            // 4. Delete Attendance Records
+            await Attendance.destroy({ where: { student_id: user.id } });
+
+            // 5. Delete Results
+            await Result.destroy({ where: { student_id: user.id } });
+
+            // 6. Delete Library Issued Books
+            await IssuedBook.destroy({ where: { student_id: user.id } });
+
+            // 7. Delete Transport Assignments
+            await TransportAssignment.destroy({ where: { student_id: user.id } });
+
+            // 8. Delete Certificates
+            await Certificate.destroy({ where: { student_id: user.id } });
+
+            // 9. Delete corresponding Registrations and Enquiries (matched by email/phone/name)
+            const searchOr = [];
+            if (user.email) searchOr.push({ email: user.email });
+            if (user.phone) searchOr.push({ phone: user.phone });
+            if (user.name) searchOr.push({ name: user.name });
+
+            if (searchOr.length > 0) {
+                await Registration.destroy({ where: { [Op.or]: searchOr } });
+                await Enquiry.destroy({ where: { [Op.or]: searchOr } });
+            }
+        }
+
         await user.destroy();
-        res.json({ msg: 'Deleted user' });
+        res.json({ msg: 'Deleted user and all associated records' });
     } catch (err) {
         console.error(err);
         res.status(500).send('Server Error');

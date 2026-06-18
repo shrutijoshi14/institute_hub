@@ -27,6 +27,21 @@ axios.interceptors.request.use(
     if (config.url && config.url.startsWith('http://localhost:5000')) {
       config.url = config.url.replace('http://localhost:5000', apiBase);
     }
+    // Inject logged-in user headers if available
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.id) {
+          config.headers['x-user-id'] = parsed.id;
+        }
+        if (parsed.role) {
+          config.headers['x-user-role'] = parsed.role;
+        }
+      } catch (err) {
+        console.error('Failed to parse user from localStorage', err);
+      }
+    }
     return config;
   },
   (error) => {
