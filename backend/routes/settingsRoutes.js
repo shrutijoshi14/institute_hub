@@ -81,56 +81,28 @@ const DEFAULT_EXAMS_BY_STANDARD = {
     'Diploma / Vocational': ['None', 'Polytechnic CET', 'ITI Entrance']
 };
 
+const { getSettings, updateSettingsCache } = require('../config/settingsCache');
+const Setting = require('../models/Setting');
+
 // Helper to read settings
 const readSettings = () => {
-    let settings = { 
-        schoolName: 'Institute Hub', 
-        logoUrl: '', 
-        contactEmail: 'info@institute.com', 
-        iconName: 'GraduationCap',
-        standardFees: DEFAULT_STANDARD_FEES,
-        boardExamCosts: [],
-        standards: DEFAULT_STANDARDS,
-        boards: DEFAULT_BOARDS,
-        exams: DEFAULT_EXAMS,
-        boardsByStandard: DEFAULT_BOARDS_BY_STANDARD,
-        examsByStandard: DEFAULT_EXAMS_BY_STANDARD
-    };
-    if (fs.existsSync(SETTINGS_FILE)) {
-        try {
-            const data = fs.readFileSync(SETTINGS_FILE);
-            settings = { ...settings, ...JSON.parse(data) };
-        } catch (e) {
-            console.error('Error parsing settings:', e);
-        }
-    }
-    if (!settings.standardFees) {
-        settings.standardFees = DEFAULT_STANDARD_FEES;
-    }
-    if (!settings.boardExamCosts) {
-        settings.boardExamCosts = [];
-    }
-    if (!settings.standards) {
-        settings.standards = DEFAULT_STANDARDS;
-    }
-    if (!settings.boards) {
-        settings.boards = DEFAULT_BOARDS;
-    }
-    if (!settings.exams) {
-        settings.exams = DEFAULT_EXAMS;
-    }
-    if (!settings.boardsByStandard) {
-        settings.boardsByStandard = DEFAULT_BOARDS_BY_STANDARD;
-    }
-    if (!settings.examsByStandard) {
-        settings.examsByStandard = DEFAULT_EXAMS_BY_STANDARD;
-    }
-    return settings;
+    return getSettings();
 };
 
 // Helper to write settings
-const writeSettings = (settings) => {
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 4));
+const writeSettings = async (settings) => {
+    try {
+        for (const [key, value] of Object.entries(settings)) {
+            await Setting.upsert({
+                key,
+                value: JSON.stringify(value)
+            });
+        }
+        updateSettingsCache(settings);
+    } catch (e) {
+        console.error('Error writing settings to DB:', e);
+        throw e;
+    }
 };
 
 // @route   GET /api/settings
@@ -147,39 +119,15 @@ router.get('/', (req, res) => {
 
 // @route   PUT /api/settings
 // @desc    Update School Settings
-router.put('/', (req, res) => {
+router.put('/', async (req, res) => {
     try {
-        const { 
-            schoolName, 
-            logoUrl, 
-            contactEmail, 
-            iconName, 
-            standardFees, 
-            boardExamCosts,
-            standards,
-            boards,
-            exams,
-            boardsByStandard,
-            examsByStandard
-        } = req.body;
         const currentSettings = readSettings();
-        
         const newSettings = {
             ...currentSettings,
-            schoolName: schoolName !== undefined ? schoolName : currentSettings.schoolName,
-            logoUrl: logoUrl !== undefined ? logoUrl : currentSettings.logoUrl,
-            contactEmail: contactEmail !== undefined ? contactEmail : currentSettings.contactEmail,
-            iconName: iconName !== undefined ? iconName : currentSettings.iconName,
-            standardFees: standardFees !== undefined ? standardFees : currentSettings.standardFees,
-            boardExamCosts: boardExamCosts !== undefined ? boardExamCosts : currentSettings.boardExamCosts,
-            standards: standards !== undefined ? standards : currentSettings.standards,
-            boards: boards !== undefined ? boards : currentSettings.boards,
-            exams: exams !== undefined ? exams : currentSettings.exams,
-            boardsByStandard: boardsByStandard !== undefined ? boardsByStandard : currentSettings.boardsByStandard,
-            examsByStandard: examsByStandard !== undefined ? examsByStandard : currentSettings.examsByStandard
+            ...req.body
         };
 
-        writeSettings(newSettings);
+        await writeSettings(newSettings);
         res.json(newSettings);
     } catch (err) {
         console.error(err);

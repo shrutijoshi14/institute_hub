@@ -85,8 +85,8 @@ router.get('/borrows', async (req, res) => {
         const records = await sequelize.query(`
             SELECT ib.*, b.title as book_title, b.author as book_author, u.name as student_name, u.username as student_username
             FROM issued_books ib
-            JOIN library_books b ON ib.book_id = b.id
-            JOIN users u ON ib.student_id = u.id
+            LEFT JOIN library_books b ON ib.book_id = b.id
+            LEFT JOIN users u ON ib.student_id = u.id
             ORDER BY ib.issue_date DESC
         `, { type: sequelize.QueryTypes.SELECT });
         res.json(records);

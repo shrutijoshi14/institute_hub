@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Check, X, Trash2, Plus, XCircle, UserCheck, UserX, Search, Filter } from 'lucide-react';
+import { Check, X, Trash2, Plus, XCircle, UserCheck, UserX, Search, Filter, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { STANDARDS, BOARDS, EXAMS, BOARDS_BY_STANDARD } from '../utils/constants';
 import DeleteModal from '../components/DeleteModal';
 
@@ -9,6 +9,19 @@ const Registrations = () => {
   const [courses, setCourses] = useState([]);
   const [settings, setSettings] = useState(null);
   const [msg, setMsg] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStandard, setSelectedStandard] = useState('All');
   const [selectedBoard, setSelectedBoard] = useState('All');
@@ -107,21 +120,26 @@ const Registrations = () => {
   }, [formData.class, formData.board, courses]);
 
   const handleUpdate = async (id, newStatus) => {
+    showToast(`Updating application status to ${newStatus}...`, 'info');
     try {
       await axios.put(`http://localhost:5000/api/registration/${id}`, { status: newStatus });
+      showToast(`Application updated to ${newStatus} successfully!`, 'success');
       fetchRegs(); // refresh
     } catch (err) {
       console.error(err);
+      showToast('Error updating application.', 'error');
     }
   };
 
   const submitApplication = async (e) => {
       e.preventDefault();
+      const data = { ...formData };
+      setShowModal(false); // Close modal immediately!
+      showToast('Creating student registration...', 'info');
       setIsSubmitting(true);
       try {
-          await axios.post('http://localhost:5000/api/registration', formData);
-          setMsg(`✅ Registration Successful. Student Account and Fees Auto-Generated.`);
-          setShowModal(false);
+          await axios.post('http://localhost:5000/api/registration', data);
+          showToast('Registration successful! Account and fees auto-generated.', 'success');
           // Set form to initial state completely
           const defaultStd = activeStandards[0] || '5th';
           const defaultBoard = (activeBoardsByStandard[defaultStd] || [])[0] || 'State Board';
@@ -141,10 +159,9 @@ const Registrations = () => {
             parent_password: ''
           });
           await fetchRegs(); // Wait for fetch before completing
-          setTimeout(() => setMsg(''), 4000);
       } catch (err) {
           console.error(err);
-          setMsg(`❌ Error: ` + (err.response?.data?.msg || 'Could not register student.'));
+          showToast(`Error: ` + (err.response?.data?.msg || 'Could not register student.'), 'error');
       } finally {
           setIsSubmitting(false);
       }
@@ -152,6 +169,51 @@ const Registrations = () => {
 
   return (
     <div>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            type="button"
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Registrations Queue</h1>
         <button className="btn btn-primary" onClick={openNewRegistration}>
@@ -328,7 +390,7 @@ const Registrations = () => {
             
             <form onSubmit={submitApplication}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-row">
                  <div className="form-group">
                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Student Full Name</label>
                    <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} required />
@@ -339,7 +401,7 @@ const Registrations = () => {
                  </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-row">
                 <div className="form-group">
                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Phone (Parent/Student)</label>
                    <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} required />
@@ -350,7 +412,7 @@ const Registrations = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-row">
                 <div className="form-group">
                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Custom Student Username (Optional)</label>
                    <input type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} placeholder="Auto-generated if empty" />
@@ -368,7 +430,7 @@ const Registrations = () => {
                  </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-row">
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Standard / Class</label>
                   <select 
@@ -418,7 +480,7 @@ const Registrations = () => {
                 );
               })()}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', padding: '1rem', backgroundColor: '#F0F9FF', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
+              <div className="form-grid-row" style={{ padding: '1rem', backgroundColor: '#F0F9FF', borderRadius: '8px', border: '1px solid #BAE6FD' }}>
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: '#0369A1' }}>Payment Plan</label>
                   <select value={formData.fee_plan} onChange={e => setFormData({...formData, fee_plan: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid #7DD3FC', outline: 'none', backgroundColor: 'white' }}>
@@ -473,11 +535,16 @@ const Registrations = () => {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         onConfirm={async () => {
+          setShowDeleteModal(false); // Close immediately!
+          showToast('Deleting registration...', 'info');
           try {
             await axios.delete(`http://localhost:5000/api/registration/${deletingId}`);
-            setShowDeleteModal(false);
+            showToast('Registration deleted successfully.', 'success');
             fetchRegs();
-          } catch (err) { console.error(err); }
+          } catch (err) {
+            console.error(err);
+            showToast('Error deleting registration.', 'error');
+          }
         }}
         title="Delete Registration"
         message="Are you sure you want to remove this registration application? This will not affect existing user accounts if already approved."

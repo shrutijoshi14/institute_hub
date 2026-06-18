@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Megaphone, Plus, Trash2, Edit, X, Save } from 'lucide-react';
+import { Megaphone, Plus, Trash2, Edit, X, Save, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { STANDARDS, BOARDS, EXAMS } from '../utils/constants';
 import DeleteModal from '../components/DeleteModal';
 
 const Notices = () => {
   const { role } = useAuth();
   const [msg, setMsg] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
+  const [settings, setSettings] = useState(null);
   const [notices, setNotices] = useState([]);
   const [selectedStandard, setSelectedStandard] = useState('All');
   const [selectedBoard, setSelectedBoard] = useState('All');
@@ -34,14 +48,18 @@ const Notices = () => {
 
   const fetchNotices = async () => {
     try {
-      const [noticeRes, batchRes, courseRes] = await Promise.all([
+      const [noticeRes, batchRes, courseRes, settingsRes] = await Promise.all([
         axios.get('http://localhost:5000/api/academic/notices'),
         axios.get('http://localhost:5000/api/batches').catch(() => ({ data: [] })),
-        axios.get('http://localhost:5000/api/courses').catch(() => ({ data: [] }))
+        axios.get('http://localhost:5000/api/courses').catch(() => ({ data: [] })),
+        axios.get('http://localhost:5000/api/settings').catch(() => ({ data: null }))
       ]);
       setNotices(noticeRes.data);
       setBatches(batchRes.data || []);
       setCourses(courseRes.data || []);
+      if (settingsRes && settingsRes.data) {
+        setSettings(settingsRes.data);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -86,21 +104,23 @@ const Notices = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.title || !formData.content) return;
+    const isEditing = !!editingNotice;
+    const data = { ...formData };
+    closeForm(); // Closes the modal immediately
+    showToast(isEditing ? 'Updating notice...' : 'Posting notice...', 'info');
     
     try {
-      if (editingNotice) {
-        await axios.put(`http://localhost:5000/api/academic/notices/${editingNotice}`, formData);
-        setMsg('✅ Notice successfully edited.');
+      if (isEditing) {
+        await axios.put(`http://localhost:5000/api/academic/notices/${editingNotice}`, data);
+        showToast('Notice successfully edited.', 'success');
       } else {
-        await axios.post('http://localhost:5000/api/academic/notices', formData);
-        setMsg('✅ Notice successfully posted to active system!');
+        await axios.post('http://localhost:5000/api/academic/notices', data);
+        showToast('Notice successfully posted!', 'success');
       }
       fetchNotices();
-      closeForm();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error saving notice.');
+      showToast('Error saving notice.', 'error');
     }
   };
 
@@ -111,20 +131,68 @@ const Notices = () => {
   };
 
   const confirmDelete = async () => {
+    setShowDeleteModal(false); // Closes the modal immediately
+    showToast('Deleting notice...', 'info');
     try {
       await axios.delete(`http://localhost:5000/api/academic/notices/${deletingId}`);
-      setMsg('✅ Notice deleted from database permanently.');
-      setShowDeleteModal(false);
+      showToast('Notice deleted permanently.', 'success');
       fetchNotices();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error deleting notice.');
+      showToast('Error deleting notice.', 'error');
     }
   };
 
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
+  const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
+
   return (
     <div>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Notice Board</h1>
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -134,7 +202,7 @@ const Notices = () => {
               style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
             >
               <option value="All">All Standards</option>
-              {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+              {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <select 
               value={selectedBoard} 
@@ -142,7 +210,7 @@ const Notices = () => {
               style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
             >
               <option value="All">All Boards</option>
-              {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+              {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
             <select 
               value={selectedExam} 
@@ -150,7 +218,7 @@ const Notices = () => {
               style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
             >
               <option value="All">All Exams</option>
-              {EXAMS.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+              {activeExams.map(ex => <option key={ex} value={ex}>{ex}</option>)}
             </select>
             <select 
               value={selectedBatch} 
@@ -258,21 +326,21 @@ const Notices = () => {
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Target Standard</label>
                   <select value={formData.target_standard} onChange={e => setFormData({...formData, target_standard: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }}>
                     <option value="All">All Standards</option>
-                    {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Target Board</label>
                   <select value={formData.target_board} onChange={e => setFormData({...formData, target_board: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }}>
                     <option value="All">All Boards</option>
-                    {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Target Exam</label>
                   <select value={formData.target_exam} onChange={e => setFormData({...formData, target_exam: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }}>
                     <option value="All">All Exams</option>
-                    {EXAMS.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+                    {activeExams.map(ex => <option key={ex} value={ex}>{ex}</option>)}
                   </select>
                 </div>
               </div>

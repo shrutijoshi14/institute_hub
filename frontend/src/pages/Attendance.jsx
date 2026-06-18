@@ -7,6 +7,7 @@ import BiometricScan from '../components/BiometricScan';
 
 const Attendance = () => {
   const { user, role } = useAuth();
+  const [settings, setSettings] = useState(null);
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState('');
@@ -61,6 +62,13 @@ const Attendance = () => {
       setLoading(true);
       const batchRes = await axios.get('http://localhost:5000/api/batches');
       setBatches(batchRes.data || []);
+
+      try {
+        const settingsRes = await axios.get('http://localhost:5000/api/settings');
+        setSettings(settingsRes.data);
+      } catch (err) {
+        console.error(err);
+      }
       
       if (role === 'admin' || role === 'faculty') {
         const standardParam = selectedStandard !== 'All' ? `?standard=${selectedStandard}` : '';
@@ -308,6 +316,10 @@ const Attendance = () => {
     return true;
   });
 
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
+  const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
+
   if (role === 'admin' || role === 'faculty') {
     const activeSession = selectedClassSession ? classSessions.find(s => String(s.id) === String(selectedClassSession)) : null;
     const isCompleted = activeSession && activeSession.status === 'Completed';
@@ -373,7 +385,7 @@ const Attendance = () => {
                   style={{ border: 'none', outline: 'none', background: 'transparent', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)' }}
                 >
                   <option value="All">All Standards</option>
-                  {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
              </div>
              <select 
@@ -385,7 +397,7 @@ const Attendance = () => {
                style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', background: '#F8FAFC', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
              >
                <option value="All">All Boards</option>
-               {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+               {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
              </select>
              <select 
                value={selectedExam} 
@@ -396,7 +408,7 @@ const Attendance = () => {
                style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', background: '#F8FAFC', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
              >
                <option value="All">All Exams</option>
-               {EXAMS.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+               {activeExams.map(ex => <option key={ex} value={ex}>{ex}</option>)}
              </select>
              <select 
                value={selectedBatch} 

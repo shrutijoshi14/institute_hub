@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Edit, Trash2, Plus, X, Save, Filter } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, X, Save, Filter, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { STANDARDS } from '../utils/constants';
 import DeleteModal from '../components/DeleteModal';
 
@@ -8,6 +8,19 @@ const StudentManagement = () => {
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [msg, setMsg] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
   const [selectedStandard, setSelectedStandard] = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
@@ -102,21 +115,23 @@ const StudentManagement = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email) return;
+    const isEditing = !!editingStudent;
+    const data = { ...formData };
+    closeForm(); // Close modal immediately!
+    showToast(isEditing ? 'Updating student details...' : 'Creating student profile...', 'info');
     
     try {
-      if (editingStudent) {
-        await axios.put(`http://localhost:5000/api/auth/users/${editingStudent}`, formData);
-        setMsg(`✅ Student ${formData.name} updated successfully!`);
+      if (isEditing) {
+        await axios.put(`http://localhost:5000/api/auth/users/${editingStudent}`, data);
+        showToast(`Student ${data.name} updated successfully!`, 'success');
       } else {
-        await axios.post('http://localhost:5000/api/auth/users', { ...formData, role: 'student' });
-        setMsg(`✅ Student ${formData.name} added successfully!`);
+        await axios.post('http://localhost:5000/api/auth/users', { ...data, role: 'student' });
+        showToast(`Student ${data.name} added successfully!`, 'success');
       }
       fetchStudents();
-      closeForm();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error saving student.');
+      showToast('Error saving student.', 'error');
     }
   };
 
@@ -127,15 +142,15 @@ const StudentManagement = () => {
   };
 
   const confirmDelete = async () => {
+    setShowDeleteModal(false); // Close modal immediately!
+    showToast('Deleting student profile...', 'info');
     try {
       await axios.delete(`http://localhost:5000/api/auth/users/${deletingId}`);
-      setMsg('✅ Student deleted permanently.');
-      setShowDeleteModal(false);
+      showToast('Student deleted successfully.', 'success');
       fetchStudents();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error deleting student.');
+      showToast('Error deleting student.', 'error');
     }
   };
 
@@ -152,6 +167,51 @@ const StudentManagement = () => {
 
   return (
     <div>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            type="button"
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Student Directory</h1>
         <button className="btn btn-primary" onClick={() => openForm()}>
@@ -237,7 +297,7 @@ const StudentManagement = () => {
             </div>
             <form onSubmit={handleSave}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-row">
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Full Name *</label>
                   <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} required />
@@ -248,7 +308,7 @@ const StudentManagement = () => {
                 </div>
               </div>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-row">
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Student Phone</label>
                   <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} />
@@ -259,7 +319,7 @@ const StudentManagement = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-row">
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Standard/Class</label>
                   <select value={formData.standard} onChange={e => setFormData({...formData, standard: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white' }}>
@@ -275,7 +335,7 @@ const StudentManagement = () => {
 
               <div style={{ borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '0.5rem' }}>
                 <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>Batch & Fee Enrollment</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="form-grid-row" style={{ marginBottom: '1rem' }}>
                   <div className="form-group">
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Assign Batch</label>
                     <select value={formData.batch_id} onChange={e => setFormData({...formData, batch_id: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white' }}>
@@ -294,7 +354,7 @@ const StudentManagement = () => {
                   </div>
                 </div>
                 {formData.fee_plan === 'EMI' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div className="form-grid-row" style={{ marginBottom: '1rem' }}>
                     <div className="form-group">
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Total Installments</label>
                       <input type="number" min="1" max="12" value={formData.total_installments} onChange={e => setFormData({...formData, total_installments: parseInt(e.target.value) || 1})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} />
@@ -316,7 +376,7 @@ const StudentManagement = () => {
               {!editingStudent && (
                 <div style={{ borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '0.5rem' }}>
                   <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>Login Credentials (Optional)</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div className="form-grid-row" style={{ marginBottom: '1rem' }}>
                     <div className="form-group">
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Student Username</label>
                       <input type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} placeholder="Auto-generated if empty" />
@@ -326,7 +386,7 @@ const StudentManagement = () => {
                       <input type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} placeholder="Default: studentpass123" />
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-grid-row">
                     <div className="form-group">
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Parent Username</label>
                       <input type="text" value={formData.parent_username} onChange={e => setFormData({...formData, parent_username: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} placeholder="Auto-generated if empty" />
@@ -341,7 +401,7 @@ const StudentManagement = () => {
 
               <div style={{ borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '0.5rem' }}>
                 <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>Parent Details</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-grid-row">
                   <div className="form-group">
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Parent/Guardian Name</label>
                     <input type="text" value={formData.parent_name} onChange={e => setFormData({...formData, parent_name: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} />

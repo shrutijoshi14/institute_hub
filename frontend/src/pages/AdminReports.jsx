@@ -17,6 +17,8 @@ const AdminReports = () => {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState({ schoolName: 'Institute Hub', logoUrl: '', contactEmail: 'info@institute.com', iconName: 'GraduationCap' });
 
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+
   const fetchSettings = async () => {
     try {
       const res = await axios.get('http://localhost:5000/api/settings');
@@ -136,7 +138,7 @@ const AdminReports = () => {
               style={{ border: 'none', outline: 'none', fontWeight: 600, color: '#1E293B', cursor: 'pointer', backgroundColor: 'transparent' }}
             >
               <option value="All">All Standards</option>
-              {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+              {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <span style={{ color: '#64748B', fontSize: '0.875rem' }}>Showing intelligence for {selectedStandard === 'All' ? 'entire institution' : `Standard ${selectedStandard}`}</span>

@@ -88,7 +88,7 @@ router.get('/admin/reports', async (req, res) => {
         const { standard } = req.query;
         let standardFilter = "";
         if (standard && standard !== 'All') {
-            standardFilter = ` AND c.class_range = ${sequelize.escape(standard)} `;
+            standardFilter = ` AND (c.class_range = ${sequelize.escape(standard)} OR u.standard = ${sequelize.escape(standard)}) `;
         }
 
         const attendanceReport = await sequelize.query(`
@@ -132,7 +132,7 @@ router.get('/admin/reports', async (req, res) => {
             LEFT JOIN batch_progress bp ON a.batch_progress_id = bp.id
             LEFT JOIN batches b ON bp.batch_id = b.id
             LEFT JOIN courses c ON bp.course_id = c.id
-            WHERE 1=1 ${standard && standard !== 'All' ? ` AND u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)}) ` : ""}
+            WHERE 1=1 ${standard && standard !== 'All' ? ` AND (u.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
             ORDER BY a.date DESC LIMIT 5
         `, { type: sequelize.QueryTypes.SELECT });
 
@@ -140,7 +140,7 @@ router.get('/admin/reports', async (req, res) => {
             SELECT r.*, u.name as student_name 
             FROM results r 
             JOIN users u ON r.student_id = u.id 
-            WHERE 1=1 ${standard && standard !== 'All' ? ` AND u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)}) ` : ""}
+            WHERE 1=1 ${standard && standard !== 'All' ? ` AND (u.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
             ORDER BY r.exam_date DESC LIMIT 5
         `, { type: sequelize.QueryTypes.SELECT });
 
@@ -179,7 +179,7 @@ router.get('/admin/history/:type', async (req, res) => {
                 LEFT JOIN enrollments e ON a.student_id = e.student_id
                 LEFT JOIN batches b2 ON e.batch_id = b2.id
                 LEFT JOIN courses c2 ON e.course_id = c2.id
-                WHERE 1=1 ${standard && standard !== 'All' ? ` AND u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)}) ` : ""}
+                WHERE 1=1 ${standard && standard !== 'All' ? ` AND (u.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
                 ORDER BY a.date DESC LIMIT 500
             `;
         } else {
@@ -187,7 +187,7 @@ router.get('/admin/history/:type', async (req, res) => {
                 SELECT r.*, u.name as student_name 
                 FROM results r 
                 JOIN users u ON r.student_id = u.id 
-                WHERE 1=1 ${standard && standard !== 'All' ? ` AND u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)}) ` : ""}
+                WHERE 1=1 ${standard && standard !== 'All' ? ` AND (u.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
                 ORDER BY r.exam_date DESC LIMIT 500
             `;
         }

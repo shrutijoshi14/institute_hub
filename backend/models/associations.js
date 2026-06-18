@@ -117,10 +117,11 @@ Room.belongsTo(Hostel, { foreignKey: 'hostel_id' });
 
 const Visitor = require('./Visitor');
 const Appointment = require('./Appointment');
+const Setting = require('./Setting');
 
 module.exports = { 
     User, Enrollment, Course, Enquiry, Registration, FeePayment, Faculty, Batch, BatchFaculty, BatchProgress, Attendance,
     Branch, Role, Permission, LibraryBook, IssuedBook, Bus, Route, Hostel, Room, Certificate, Salary, Leave, Complaint, Chat, 
-    Announcement, Event, Expense, TransportAssignment, AuditLog, ActivityLog, Visitor, Appointment
+    Announcement, Event, Expense, TransportAssignment, AuditLog, ActivityLog, Visitor, Appointment, Setting
 };
 

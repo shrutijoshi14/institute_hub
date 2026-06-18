@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
-import { Search, Filter, MessageCircle, AlertCircle, CheckCircle, DollarSign, Loader2, X, Clock, IndianRupee } from 'lucide-react';
+import { Search, Filter, MessageCircle, AlertCircle, CheckCircle, DollarSign, Loader2, X, Clock, IndianRupee, Info, Printer } from 'lucide-react';
 import { STANDARDS, BOARDS, EXAMS } from '../utils/constants';
 
 const AdminFees = () => {
   const [successMsg, setSuccessMsg] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,6 +43,10 @@ const AdminFees = () => {
     cardNumber: '', cardExpiry: '', cardCvv: '', cardHolder: ''
   });
   const [settings, setSettings] = useState({ schoolName: 'Institute Hub', logoUrl: '', contactEmail: 'info@institute.com', iconName: 'GraduationCap' });
+
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
+  const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
 
   const fetchSettings = async () => {
     try {
@@ -94,54 +111,280 @@ const AdminFees = () => {
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
-  const generatePDF = (student, amount, paymentId, paymentMode) => {
-    const doc = new jsPDF();
+  const numberToWords = (num) => {
+    const a = [
+      '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 
+      'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+    ];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    const convertHundreds = (n) => {
+      if (n === 0) return '';
+      let str = '';
+      if (n >= 100) {
+        str += a[Math.floor(n / 100)] + ' Hundred ';
+        n %= 100;
+      }
+      if (n >= 20) {
+        str += b[Math.floor(n / 10)] + ' ';
+        n %= 10;
+      }
+      if (n > 0) {
+        str += a[n] + ' ';
+      }
+      return str.trim();
+    };
+
+    if (num === 0) return 'Zero';
+    if (isNaN(num)) return '';
+
+    let temp = Math.floor(num);
+    let words = '';
+
+    if (temp >= 10000000) {
+      words += convertHundreds(Math.floor(temp / 10000000)) + ' Crore ';
+      temp %= 10000000;
+    }
+    if (temp >= 100000) {
+      words += convertHundreds(Math.floor(temp / 100000)) + ' Lakh ';
+      temp %= 100000;
+    }
+    if (temp >= 1000) {
+      words += convertHundreds(Math.floor(temp / 1000)) + ' Thousand ';
+      temp %= 1000;
+    }
+    if (temp > 0) {
+      words += convertHundreds(temp);
+    }
+
+    return (words.trim() + ' Only').replace(/\s+/g, ' ');
+  };
+
+  const generatePDF = async (student, payment, prevPaid, outstanding) => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const amountVal = parseFloat(payment.amount_paid);
+    const taxableAmount = amountVal / 1.18;
+    const gstAmount = amountVal - taxableAmount;
     
-    // Header
-    doc.setFontSize(22);
+    // Attempt loading real logo Url
+    let logoLoaded = false;
+    let logoImg = null;
+    if (settings.logoUrl && settings.logoUrl.startsWith('http')) {
+      try {
+        logoImg = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'Anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = (e) => reject(e);
+          img.src = settings.logoUrl;
+        });
+        logoLoaded = true;
+      } catch (e) {
+        console.warn('Fallback to vector logo:', e.message);
+      }
+    }
+
+    // --- Header Branding ---
+    if (logoLoaded && logoImg) {
+      doc.addImage(logoImg, 'PNG', 15, 15, 15, 15);
+    } else {
+      // Draw standard geometric logo
+      doc.setFillColor(37, 99, 235);
+      doc.circle(22, 22, 7, 'F');
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.text((settings.schoolName || 'I').charAt(0).toUpperCase(), 22, 25, { align: 'center' });
+    }
+
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(37, 99, 235);
-    doc.text(settings.schoolName || 'Institute Hub', 105, 20, { align: 'center' });
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(settings.contactEmail || 'info@institute.com', 105, 27, { align: 'center' });
-    
-    doc.setLineWidth(0.5);
-    doc.line(20, 38, 190, 38);
-    
     doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text('PAYMENT RECEIPT (ADMIN COPY)', 20, 50);
+    doc.text(settings.schoolName || 'Vasudev Classes', 34, 21);
     
-    doc.setFontSize(10);
-    doc.text(`Receipt #: REC-ADM-${paymentId || Date.now()}`, 140, 50);
-    doc.text(`Date: ${new Date().toLocaleDateString('en-GB')}`, 140, 55);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.setFontSize(8);
+    doc.text(settings.contactEmail || 'vasudev@gmail.com', 34, 25);
+    doc.text(`${settings.contactPhone || '+91 98765 43210'}  |  GSTIN: ${settings.gstin || '09ABCDE1234F1Z5'}`, 34, 29);
+    doc.text(settings.address || '123, Tech Park, Sector 62, Noida, Uttar Pradesh', 15, 38);
+
+    // --- Invoice Metadata ---
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(22);
+    doc.text('INVOICE / RECEIPT', 195, 22, { align: 'right' });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`Receipt No: REC-${payment.id}`, 195, 29, { align: 'right' });
+    doc.text(`Date: ${new Date(payment.payment_date).toLocaleDateString('en-GB')}`, 195, 33, { align: 'right' });
+    doc.text(`Payment Mode: ${payment.payment_mode || 'Cash'}`, 195, 37, { align: 'right' });
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(15, 45, 195, 45);
+
+    // --- Billed To & Fee Summary Panels ---
+    // Billed To Box
+    doc.setFillColor(240, 249, 255);
+    doc.roundedRect(15, 50, 85, 30, 2, 2, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(2, 132, 199);
+    doc.text("BILLED TO", 19, 55);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(student.name, 19, 61);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Course: ${student.course}`, 19, 66);
+    doc.text(`Phone: ${student.phone || 'N/A'}`, 19, 70);
+    doc.text(`Email: ${student.email || 'N/A'}`, 19, 74);
+
+    // Fee Summary Box
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(110, 50, 85, 30, 2, 2, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100);
+    doc.text("FEE ACCOUNT SUMMARY", 114, 55);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Total Course Fee:  ₹${parseFloat(student.totalFee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 114, 61);
+    doc.text(`Previously Paid:   ₹${parseFloat(prevPaid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 114, 65);
+    doc.text(`Current Payment:   ₹${amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 114, 69);
     
-    doc.setFontSize(11);
-    doc.text('Student Details:', 20, 65);
-    doc.setFont(undefined, 'bold');
-    doc.text(student.name, 20, 70);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Course: ${student.course}`, 20, 75);
-    doc.text(`Phone: ${student.phone}`, 20, 80);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(220, 38, 38);
+    doc.text(`Remaining Balance: ₹${parseFloat(outstanding).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 114, 74);
+
+    // --- Table Listing ---
+    doc.setFillColor(15, 23, 42);
+    doc.rect(15, 87, 180, 8, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text("#", 18, 92);
+    doc.text("DESCRIPTION", 28, 92);
+    doc.text("QTY", 125, 92, { align: 'center' });
+    doc.text("UNIT PRICE", 155, 92, { align: 'right' });
+    doc.text("TOTAL", 191, 92, { align: 'right' });
+
+    // Table Content Row
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(15, 95, 180, 15);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text("1", 18, 101);
+    doc.text("Tuition Fee Installment Payment", 28, 101);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100);
+    doc.text(`Receipt against standard tuition fee allocation.`, 28, 106);
     
-    doc.setFillColor(241, 245, 249);
-    doc.rect(20, 90, 170, 10, 'F');
-    doc.text('Transaction Description', 25, 96);
-    doc.text('Amount', 160, 96);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text("1", 125, 101, { align: 'center' });
+    doc.text(`₹${taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 155, 101, { align: 'right' });
+    doc.text(`₹${taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 101, { align: 'right' });
+
+    // --- Totals Section ---
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(100);
+    doc.text("Subtotal:", 150, 118, { align: 'right' });
+    doc.setTextColor(15, 23, 42);
+    doc.text(`₹${taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 118, { align: 'right' });
+
+    doc.setTextColor(100);
+    doc.text("Taxable Amount:", 150, 123, { align: 'right' });
+    doc.setTextColor(15, 23, 42);
+    doc.text(`₹${taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 123, { align: 'right' });
+
+    doc.setTextColor(100);
+    doc.text("GST (18% Inclusive):", 150, 128, { align: 'right' });
+    doc.setTextColor(15, 23, 42);
+    doc.text(`₹${gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 128, { align: 'right' });
+
+    // Total Banner
+    doc.setFillColor(15, 23, 42);
+    doc.rect(110, 133, 85, 9, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text("TOTAL PAID", 114, 139);
+    doc.text(`₹${amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 139, { align: 'right' });
+
+    // Amount in Words Box
+    doc.setFillColor(248, 250, 252);
+    doc.rect(110, 145, 85, 12, 'F');
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100);
+    doc.text("Amount in Words:", 113, 149);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    // Wrap text if words exceed width
+    const words = numberToWords(amountVal);
+    const splitWords = doc.splitTextToSize(words, 80);
+    doc.text(splitWords, 113, 153);
+
+    // --- Payment Information (Bottom Left) ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(2, 132, 199);
+    doc.text("PAYMENT INFORMATION", 15, 118);
     
-    doc.text(`Fee Payment Received (${paymentMode})`, 25, 110);
-    doc.text(`$${parseFloat(amount).toFixed(2)}`, 160, 110);
-    
-    doc.line(20, 115, 190, 115);
-    
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text('Amount Received:', 125, 125);
-    doc.setTextColor(16, 185, 129);
-    doc.text(`$${parseFloat(amount).toFixed(2)}`, 160, 125);
-    
-    doc.save(`Receipt_${student.name.replace(/\s+/g, '_')}.pdf`);
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(15, 121, 85, 28);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Bank Name: ${settings.bankName || 'HDFC Bank'}`, 18, 126);
+    doc.text(`Account Name: ${settings.accountName || 'Vasudev Classes'}`, 18, 130);
+    doc.text(`Account Number: ${settings.accountNumber || '50200012345678'}`, 18, 134);
+    doc.text(`IFSC Code: ${settings.ifscCode || 'HDFC0001234'}`, 18, 138);
+    doc.text(`UPI ID: ${settings.upiId || 'vasudev@upi'}`, 18, 142);
+
+    // --- Notes Section ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text("NOTES", 15, 158);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text("1. Please review this invoice and keep it safe for future academic sessions.", 15, 163);
+    doc.text("2. This is a computer generated document and does not require a physical signature.", 15, 167);
+    doc.text(`3. For queries, contact administrative support at ${settings.contactEmail || 'vasudev@gmail.com'}.`, 15, 171);
+
+    // --- Cursive Thank You ---
+    doc.setFont("times", "italic");
+    doc.setFontSize(16);
+    doc.setTextColor(2, 132, 199);
+    doc.text("Thank You!", 15, 185);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text("We appreciate your business.", 15, 190);
+
+    // --- Footer Bar ---
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 282, 210, 15, 'F');
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("Follow us: facebook.com  |  twitter.com  |  linkedin.com", 15, 291);
+    doc.text(`© ${new Date().getFullYear()} ${settings.schoolName || 'Vasudev Classes'}. All rights reserved.`, 195, 291, { align: 'right' });
+
+    doc.save(`Receipt_${student.name.replace(/\s+/g, '_')}_REC_${payment.id}.pdf`);
   };
 
   const handleSendReminder = (student) => {
@@ -179,35 +422,38 @@ const AdminFees = () => {
     
     const paymentAmount = parseFloat(formData.amount_paid);
     if (paymentAmount > recordingStudent.pending) {
-       setSuccessMsg(`⚠️ Amount cannot exceed the pending balance (₹${recordingStudent.pending})`);
-       setTimeout(() => setSuccessMsg(''), 4000);
+       showToast(`Amount cannot exceed the pending balance (₹${recordingStudent.pending})`, 'error');
        return;
     }
 
-    setIsSubmitting(true);
+    const currentStudent = recordingStudent;
+    const currentAmount = formData.amount_paid;
+    const currentMode = formData.payment_mode;
 
-    // Simulate payment gateway delay for digital transfers
-    if (formData.payment_mode === 'Card' || formData.payment_mode === 'Bank Transfer') {
-       await new Promise(resolve => setTimeout(resolve, 2500));
-    }
+    setShowModal(false); // Close modal immediately!
+    showToast('Recording payment and generating receipt...', 'info');
+
+    setIsSubmitting(true);
 
     try {
        const res = await axios.post('http://localhost:5000/api/fees/pay', {
-          student_id: recordingStudent.id,
+          student_id: currentStudent.id,
           amount_paid: paymentAmount,
-          payment_mode: formData.payment_mode
+          payment_mode: currentMode
        });
        
-       setSuccessMsg(`✅ Payment of $${formData.amount_paid} recorded. Downloading receipt...`);
-       generatePDF(recordingStudent, formData.amount_paid, res.data.id, formData.payment_mode);
-       setShowModal(false);
+       const newPayment = {
+          id: res.data.id,
+          amount_paid: paymentAmount,
+          payment_mode: currentMode,
+          payment_date: new Date().toISOString()
+       };
+       generatePDF(currentStudent, newPayment, parseFloat(currentStudent.paid), parseFloat(currentStudent.pending) - paymentAmount);
        setRecordingStudent(null);
        await fetchFees();
-       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
        console.error(err);
-       setSuccessMsg(`❌ Error: Could not record payment.`);
-       setShowModal(false);
+       showToast('Could not record payment.', 'error');
        setRecordingStudent(null);
     } finally {
        setIsSubmitting(false);
@@ -229,6 +475,50 @@ const AdminFees = () => {
 
   return (
     <div>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h1 className="page-title">Fee Management (Admin)</h1>
         <div style={{ display: 'flex', gap: '1rem' }}>
@@ -260,32 +550,32 @@ const AdminFees = () => {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
              <Filter size={18} style={{ color: 'var(--text-secondary)' }} />
-             <select 
-               value={selectedStandard} 
-               onChange={(e) => setSelectedStandard(e.target.value)}
-               style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
-             >
-               <option value="All">All Standards</option>
-               {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
-             </select>
-             
-             <select 
-               value={selectedBoard} 
-               onChange={(e) => setSelectedBoard(e.target.value)}
-               style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
-             >
-               <option value="All">All Boards</option>
-               {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
-             </select>
+              <select 
+                value={selectedStandard} 
+                onChange={(e) => setSelectedStandard(e.target.value)}
+                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
+              >
+                <option value="All">All Standards</option>
+                {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              
+              <select 
+                value={selectedBoard} 
+                onChange={(e) => setSelectedBoard(e.target.value)}
+                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
+              >
+                <option value="All">All Boards</option>
+                {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
 
-             <select 
-               value={selectedExam} 
-               onChange={(e) => setSelectedExam(e.target.value)}
-               style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
-             >
-               <option value="All">All Exams</option>
-               {EXAMS.map(ex => <option key={ex} value={ex}>{ex}</option>)}
-             </select>
+              <select 
+                value={selectedExam} 
+                onChange={(e) => setSelectedExam(e.target.value)}
+                style={{ padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '150px' }}
+              >
+                <option value="All">All Exams</option>
+                {activeExams.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+              </select>
 
              <select 
                value={selectedBatch} 
@@ -480,7 +770,7 @@ const AdminFees = () => {
                   <div style={{ textAlign: 'center', padding: '1rem', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                     <p style={{ fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>Scan to Pay (₹{formData.amount_paid})</p>
                     <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=pay@bank&pn=${encodeURIComponent(settings.schoolName || 'Institute')}&am=${formData.amount_paid}&cu=INR`} 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=${settings.upiId || 'vasudev@upi'}&pn=${encodeURIComponent(settings.schoolName || 'Vasudev Classes')}&am=${formData.amount_paid}&cu=INR`} 
                       alt="UPI QR Code" 
                       style={{ width: '150px', height: '150px', margin: '0 auto', display: 'block', borderRadius: '8px' }}
                     />
@@ -672,15 +962,38 @@ const AdminFees = () => {
                  <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem 0' }}>No payment records found.</p>
               ) : (
                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                   {historyLogs.map(log => (
-                      <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
-                         <div>
-                           <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{new Date(log.payment_date).toLocaleDateString('en-GB')}</div>
-                           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Method: {log.payment_mode || 'Cash'}</div>
+                    {historyLogs.map(log => {
+                       const chronologicalLogs = [...historyLogs].reverse();
+                       let cumulativePaid = 0;
+                       for (const p of chronologicalLogs) {
+                         cumulativePaid += parseFloat(p.amount_paid);
+                         if (p.id === log.id) {
+                           break;
+                         }
+                       }
+                       const currentPaid = parseFloat(log.amount_paid);
+                       const prevPaid = cumulativePaid - currentPaid;
+                       const outstanding = Math.max(0, parseFloat(historyStudent.totalFee) - cumulativePaid);
+
+                       return (
+                         <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{new Date(log.payment_date).toLocaleDateString('en-GB')}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Method: {log.payment_mode || 'Cash'}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              <div style={{ fontWeight: 'bold', color: '#10B981' }}>+ ₹{log.amount_paid}</div>
+                              <button 
+                                onClick={() => generatePDF(historyStudent, log, prevPaid, outstanding)}
+                                style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}
+                                title="Download Receipt PDF"
+                              >
+                                <Printer size={16} />
+                              </button>
+                            </div>
                          </div>
-                         <div style={{ fontWeight: 'bold', color: '#10B981' }}>+ ₹{log.amount_paid}</div>
-                      </div>
-                   ))}
+                       );
+                    })}
                  </div>
               )}
             </div>

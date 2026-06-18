@@ -1,11 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Trash2, Edit, X, Save, Filter } from 'lucide-react';
+import { Plus, Trash2, Edit, X, Save, Filter, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { STANDARDS, BOARDS, EXAMS } from '../utils/constants';
 import DeleteModal from '../components/DeleteModal';
 
 const Faculty = () => {
   const [msg, setMsg] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
+  const [settings, setSettings] = useState(null);
   const [teachers, setTeachers] = useState([]);
   
   const [showModal, setShowModal] = useState(false);
@@ -44,6 +58,15 @@ const Faculty = () => {
 
   useEffect(() => {
     fetchFaculty();
+    const fetchSettings = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/settings');
+        setSettings(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchSettings();
   }, []);
 
   useEffect(() => {
@@ -81,21 +104,23 @@ const Faculty = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.qualification) return;
+    const isEditing = !!editingFaculty;
+    const data = { ...formData };
+    closeForm(); // Closes modal immediately
+    showToast(isEditing ? 'Updating faculty...' : 'Creating faculty...', 'info');
 
     try {
-      if (editingFaculty) {
-        await axios.put(`http://localhost:5000/api/faculty/${editingFaculty}`, formData);
-        setMsg('✅ Faculty details updated successfully!');
+      if (isEditing) {
+        await axios.put(`http://localhost:5000/api/faculty/${editingFaculty}`, data);
+        showToast('Faculty details updated successfully!', 'success');
       } else {
-        await axios.post('http://localhost:5000/api/faculty', formData);
-        setMsg('✅ Faculty member added successfully to database and user auto-created!');
+        await axios.post('http://localhost:5000/api/faculty', data);
+        showToast('Faculty member added successfully!', 'success');
       }
       fetchFaculty();
-      closeForm();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error saving faculty details.');
+      showToast('Error saving faculty details.', 'error');
     }
   };
 
@@ -106,15 +131,15 @@ const Faculty = () => {
   };
 
   const confirmDelete = async () => {
+    setShowDeleteModal(false); // Closes modal immediately
+    showToast('Deleting faculty...', 'info');
     try {
       await axios.delete(`http://localhost:5000/api/faculty/${deletingId}`);
-      setMsg('✅ Faculty deleted permanently.');
-      setShowDeleteModal(false);
+      showToast('Faculty deleted successfully.', 'success');
       fetchFaculty();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error deleting faculty.');
+      showToast('Error deleting faculty.', 'error');
     }
   };
 
@@ -154,8 +179,56 @@ const Faculty = () => {
     return true;
   });
 
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
+  const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
+
   return (
     <div>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Faculty Management</h1>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -165,7 +238,7 @@ const Faculty = () => {
             style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
           >
             <option value="All">All Standards</option>
-            {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+            {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select 
             value={selectedBoard} 
@@ -173,7 +246,7 @@ const Faculty = () => {
             style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
           >
             <option value="All">All Boards</option>
-            {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+            {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
           <select 
             value={selectedExam} 
@@ -181,7 +254,7 @@ const Faculty = () => {
             style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
           >
             <option value="All">All Exams</option>
-            {EXAMS.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+            {activeExams.map(ex => <option key={ex} value={ex}>{ex}</option>)}
           </select>
           <select 
             value={selectedBatch} 

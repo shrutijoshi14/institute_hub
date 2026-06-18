@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Filter, Plus, Edit, Trash2, X, UserPlus, CheckCircle, Save, Loader2, QrCode, Share2, Copy, Check } from 'lucide-react';
+import { Search, Filter, Plus, Edit, Trash2, X, UserPlus, CheckCircle, Save, Loader2, QrCode, Share2, Copy, Check, AlertCircle, Info } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { STANDARDS, BOARDS, EXAMS, STATUSES, BOARDS_BY_STANDARD, EXAMS_BY_STANDARD } from '../utils/constants';
 import DeleteModal from '../components/DeleteModal';
@@ -11,6 +11,19 @@ const Enquiries = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
   const [convertError, setConvertError] = useState('');
   const [formError, setFormError] = useState('');
   const [settings, setSettings] = useState(null);
@@ -176,21 +189,23 @@ const Enquiries = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    const isEditing = !!editingId;
+    const data = { ...formData };
+    setShowModal(false); // Close modal immediately!
+    showToast(isEditing ? 'Updating enquiry...' : 'Saving new enquiry...', 'info');
     setIsSaving(true);
     setFormError('');
     try {
-      if (editingId) {
-        await axios.put(`http://localhost:5000/api/enquiry/${editingId}`, formData);
+      if (isEditing) {
+        await axios.put(`http://localhost:5000/api/enquiry/${editingId}`, data);
       } else {
-        await axios.post('http://localhost:5000/api/enquiry', formData);
+        await axios.post('http://localhost:5000/api/enquiry', data);
       }
-      setMsg(`✅ Enquiry successfully saved.`);
-      setShowModal(false);
+      showToast('Enquiry successfully saved.', 'success');
       await fetchData();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setFormError(`❌ Error saving enquiry: ${err.response?.data?.msg || err.message || 'Server Error'}`);
+      showToast(`Error saving enquiry: ${err.response?.data?.msg || err.message || 'Server Error'}`, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -198,22 +213,23 @@ const Enquiries = () => {
 
   const handleConvert = async (e) => {
     e.preventDefault();
-    setIsConverting(true);
-    setConvertError('');
     if (!convertData.batch_id) {
-      setConvertError('Please select a batch to enroll the student.');
-      setIsConverting(false);
+      showToast('Please select a batch to enroll the student.', 'error');
       return;
     }
+    const data = { ...convertData };
+    const name = convertingEnq.name;
+    setShowConvertModal(false); // Close modal immediately!
+    showToast(`Converting ${name} to registered student...`, 'info');
+    setIsConverting(true);
+    setConvertError('');
     try {
-      await axios.post(`http://localhost:5000/api/enquiry/convert/${convertingEnq.id}`, convertData);
-      setMsg(`✅ ${convertingEnq.name} has been enrolled as a student!`);
-      setShowConvertModal(false);
+      await axios.post(`http://localhost:5000/api/enquiry/convert/${convertingEnq.id}`, data);
+      showToast(`${name} has been enrolled as a student!`, 'success');
       await fetchData();
-      setTimeout(() => setMsg(''), 4000);
     } catch (err) {
       console.error(err);
-      setConvertError(`Conversion failed: ${err.response?.data?.msg || err.message || 'Server Error'}`);
+      showToast(`Conversion failed: ${err.response?.data?.msg || err.message || 'Server Error'}`, 'error');
     } finally {
       setIsConverting(false);
     }
@@ -226,13 +242,16 @@ const Enquiries = () => {
   };
 
   const confirmDelete = async () => {
+     setShowDeleteModal(false); // Close modal immediately!
+     showToast('Deleting enquiry...', 'info');
      try {
        await axios.delete(`http://localhost:5000/api/enquiry/${deletingId}`);
-       setMsg('✅ Enquiry deleted.');
-       setShowDeleteModal(false);
+       showToast('Enquiry deleted successfully.', 'success');
        fetchData();
-       setTimeout(() => setMsg(''), 3000);
-     } catch (err) { console.error(err); }
+     } catch (err) {
+       console.error(err);
+       showToast('Error deleting enquiry.', 'error');
+     }
   };
 
   const getStatusColor = (status) => {
@@ -282,6 +301,51 @@ const Enquiries = () => {
 
   return (
     <div>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            type="button"
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Enquiries Management</h1>
         <div style={{ display: 'flex', gap: '0.75rem' }}>

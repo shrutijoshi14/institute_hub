@@ -99,7 +99,7 @@ router.get('/salaries', async (req, res) => {
         const salaries = await sequelize.query(`
             SELECT s.*, u.name as staff_name, u.role as staff_role 
             FROM salary s
-            JOIN users u ON s.user_id = u.id
+            LEFT JOIN users u ON s.user_id = u.id
             ORDER BY s.year DESC, s.month DESC
         `, { type: sequelize.QueryTypes.SELECT });
         res.json(salaries);
@@ -168,22 +168,26 @@ router.put('/salaries/:id', async (req, res) => {
 // @desc    List all students with pending fees
 router.get('/pending-fees', async (req, res) => {
     try {
+        const { getStandardFeeSqlFragment, getStandardCourseTitleSqlFragment } = require('../utils/feeHelper');
+        const feeSql = getStandardFeeSqlFragment('u.standard', 'e.batch_id');
+        const titleSql = getStandardCourseTitleSqlFragment('u.standard', 'e.batch_id');
+
         const pending = await sequelize.query(`
             SELECT 
                 u.id as student_id, 
                 u.name as student_name, 
                 u.phone as student_phone, 
-                c.title as course_title,
-                c.fees as total_fees,
+                COALESCE(c.title, ${titleSql}) as course_title,
+                COALESCE(NULLIF(c.fees, 0), ${feeSql}) as total_fees,
                 COALESCE(SUM(f.amount_paid), 0) as paid_fees,
-                (c.fees - COALESCE(SUM(f.amount_paid), 0)) as pending_fees
+                (COALESCE(NULLIF(c.fees, 0), ${feeSql}) - COALESCE(SUM(f.amount_paid), 0)) as pending_fees
             FROM users u
-            JOIN enrollments e ON u.id = e.student_id
-            JOIN courses c ON e.course_id = c.id
+            LEFT JOIN enrollments e ON u.id = e.student_id
+            LEFT JOIN courses c ON e.course_id = c.id
             LEFT JOIN fee_payments f ON u.id = f.student_id
             WHERE u.role = 'student'
-            GROUP BY u.id, u.name, u.phone, c.title, c.fees
-            HAVING (c.fees - COALESCE(SUM(f.amount_paid), 0)) > 0
+            GROUP BY u.id, u.name, u.phone, c.title, c.fees, e.batch_id, u.standard
+            HAVING (COALESCE(NULLIF(c.fees, 0), ${feeSql}) - COALESCE(SUM(f.amount_paid), 0)) > 0
         `, { type: sequelize.QueryTypes.SELECT });
         res.json(pending);
     } catch (err) {

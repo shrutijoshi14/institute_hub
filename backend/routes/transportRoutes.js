@@ -121,9 +121,9 @@ router.get('/assignments', async (req, res) => {
                    r.route_name as route_name, r.fee as route_fee,
                    b.bus_number as bus_number, b.driver_name as driver_name
             FROM transport_assignments ta
-            JOIN users u ON ta.student_id = u.id
-            JOIN routes r ON ta.route_id = r.id
-            JOIN buses b ON ta.bus_id = b.id
+            LEFT JOIN users u ON ta.student_id = u.id
+            LEFT JOIN routes r ON ta.route_id = r.id
+            LEFT JOIN buses b ON ta.bus_id = b.id
             ORDER BY ta.id DESC
         `, { type: sequelize.QueryTypes.SELECT });
         res.json(assignments);

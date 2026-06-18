@@ -1,5 +1,4 @@
-const fs = require('fs');
-const path = require('path');
+const { getSettings } = require('../config/settingsCache');
 
 /**
  * Gets the fee for a given standard, falling back to settings.json or default mappings.
@@ -8,18 +7,15 @@ const path = require('path');
  * @returns {number}
  */
 const getStandardFee = (standard, courseIdOrObj = null) => {
-    // 1. First, check settings.json
+    // 1. First, check settings cache
     try {
-        const settingsPath = path.join(__dirname, '../config/settings.json');
-        if (fs.existsSync(settingsPath)) {
-            const settings = JSON.parse(fs.readFileSync(settingsPath));
-            if (settings.standardFees && settings.standardFees[standard] !== undefined) {
-                const fee = parseFloat(settings.standardFees[standard]);
-                if (fee > 0) return fee;
-            }
+        const settings = getSettings();
+        if (settings && settings.standardFees && settings.standardFees[standard] !== undefined) {
+            const fee = parseFloat(settings.standardFees[standard]);
+            if (fee > 0) return fee;
         }
     } catch (err) {
-        console.error('Error reading settings.json for standard fees:', err);
+        console.error('Error checking standard fees in cache:', err);
     }
 
     // 2. Fallback to course fees if provided
@@ -85,15 +81,12 @@ const getStandardFeeSqlFragment = (standardField = 'u.standard', batchIdField = 
         'Diploma / Vocational': 45000
     };
     try {
-        const settingsPath = path.join(__dirname, '../config/settings.json');
-        if (fs.existsSync(settingsPath)) {
-            const settings = JSON.parse(fs.readFileSync(settingsPath));
-            if (settings.standardFees) {
-                feesObj = { ...feesObj, ...settings.standardFees };
-            }
+        const settings = getSettings();
+        if (settings && settings.standardFees) {
+            feesObj = { ...feesObj, ...settings.standardFees };
         }
     } catch (err) {
-        console.error('Error loading settings.json for SQL fragment:', err);
+        console.error('Error loading settings cache for SQL fragment:', err);
     }
 
     let cases = '';

@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { UserCheck, UserX, Shield, User, Mail, Phone, Loader2, Search, Filter, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { UserCheck, UserX, Shield, User, Mail, Phone, Loader2, Search, Filter, CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
 
@@ -26,14 +39,14 @@ const UserManagement = () => {
   }, []);
 
   const handleUpdate = async (id, data) => {
+    showToast('Updating user settings...', 'info');
     try {
       await axios.put(`http://localhost:5000/api/auth/users/${id}/status`, data);
-      setMsg(`✅ User updated: ${data.status || data.role}`);
+      showToast(`User updated: ${data.status || data.role}`, 'success');
       fetchUsers();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error updating user.');
+      showToast('Error updating user.', 'error');
     }
   };
 
@@ -47,6 +60,51 @@ const UserManagement = () => {
 
   return (
     <div style={{ padding: '1rem' }}>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <XCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            type="button"
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Portal Access Control</h1>
       </div>

@@ -1,12 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BookOpen, Clock, Plus, Trash2, Edit, X } from 'lucide-react';
+import { BookOpen, Clock, Plus, Trash2, Edit, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { STANDARDS, BOARDS, EXAMS, SUBJECTS, BOARDS_BY_STANDARD, EXAMS_BY_STANDARD, SUBJECTS_BY_STANDARD } from '../utils/constants';
 import DeleteModal from '../components/DeleteModal';
 
 const Syllabus = () => {
   const [msg, setMsg] = useState('');
+  const [settings, setSettings] = useState(null);
   const [courses, setCourses] = useState([]);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
   const [selectedStandard, setSelectedStandard] = useState('All');
   const [selectedBoard, setSelectedBoard] = useState('All');
   const [selectedExam, setSelectedExam] = useState('All');
@@ -40,6 +54,15 @@ const Syllabus = () => {
 
   useEffect(() => {
     fetchCourses();
+    const fetchSettings = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/settings');
+        setSettings(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchSettings();
   }, []);
 
   useEffect(() => {
@@ -53,13 +76,17 @@ const Syllabus = () => {
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoardsByStd = settings?.boardsByStandard && Object.keys(settings.boardsByStandard).length > 0 ? settings.boardsByStandard : BOARDS_BY_STANDARD;
+  const activeExamsByStd = settings?.examsByStandard && Object.keys(settings.examsByStandard).length > 0 ? settings.examsByStandard : EXAMS_BY_STANDARD;
+
   const availableBoards = selectedStandard === 'All' 
-    ? [...new Set(Object.values(BOARDS_BY_STANDARD).flat())].sort()
-    : BOARDS_BY_STANDARD[selectedStandard] || [];
+    ? [...new Set(Object.values(activeBoardsByStd).flat())].sort()
+    : activeBoardsByStd[selectedStandard] || [];
 
   const availableExams = selectedStandard === 'All'
-    ? [...new Set(Object.values(EXAMS_BY_STANDARD).flat())].sort()
-    : EXAMS_BY_STANDARD[selectedStandard] || [];
+    ? [...new Set(Object.values(activeExamsByStd).flat())].sort()
+    : activeExamsByStd[selectedStandard] || [];
 
   useEffect(() => {
     if (selectedStandard !== 'All') {
@@ -86,13 +113,17 @@ const Syllabus = () => {
       });
     } else {
       setEditingCourse(null);
+      const defaultStd = activeStandards[0] || '5th';
+      const defaultBoards = activeBoardsByStd[defaultStd] || [];
+      const defaultExams = activeExamsByStd[defaultStd] || [];
+      const defaultSubjects = SUBJECTS_BY_STANDARD[defaultStd] || [];
       setFormData({
         title: '',
         description: '',
-        class_range: '5th',
-        board: 'State Board',
-        exam_target: 'None',
-        subject: 'Maths',
+        class_range: defaultStd,
+        board: defaultBoards.length > 0 ? defaultBoards[0] : 'State Board',
+        exam_target: defaultExams.length > 0 ? defaultExams[0] : 'None',
+        subject: defaultSubjects.length > 0 ? defaultSubjects[0] : 'Maths',
         fees: ''
       });
     }
@@ -101,20 +132,22 @@ const Syllabus = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    const isEditing = !!editingCourse;
+    const data = { ...formData };
+    setShowModal(false); // Modal disappears immediately
+    showToast(isEditing ? 'Updating course...' : 'Creating course...', 'info');
     try {
-      if (editingCourse) {
-        await axios.put(`http://localhost:5000/api/courses/${editingCourse}`, formData);
-        setMsg(`✅ Course updated successfully!`);
+      if (isEditing) {
+        await axios.put(`http://localhost:5000/api/courses/${editingCourse}`, data);
+        showToast('Course updated successfully!', 'success');
       } else {
-        await axios.post('http://localhost:5000/api/courses', formData);
-        setMsg(`✅ Course added successfully!`);
+        await axios.post('http://localhost:5000/api/courses', data);
+        showToast('Course added successfully!', 'success');
       }
       fetchCourses();
-      setShowModal(false);
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error saving course.');
+      showToast('Error saving course.', 'error');
     }
   };
 
@@ -125,14 +158,15 @@ const Syllabus = () => {
   };
 
   const confirmDelete = async () => {
+    setShowDeleteModal(false); // Modal disappears immediately
+    showToast('Deleting course...', 'info');
     try {
       await axios.delete(`http://localhost:5000/api/courses/${deletingId}`);
-      setMsg(`✅ Course deleted successfully.`);
-      setShowDeleteModal(false);
+      showToast('Course deleted successfully.', 'success');
       fetchCourses();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
+      showToast('Error deleting course.', 'error');
     }
   };
 
@@ -152,6 +186,50 @@ const Syllabus = () => {
 
   return (
     <div>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Syllabus Master (Index & Topics)</h1>
         <button className="btn btn-primary" onClick={() => openForm()}>
@@ -170,7 +248,7 @@ const Syllabus = () => {
             style={{ padding: '0.5rem 1rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#fff', minWidth: '150px', fontWeight: 600 }}
           >
             <option value="All">All Standards</option>
-            {STANDARDS.map(std => <option key={std} value={std}>{std} Standard</option>)}
+            {activeStandards.map(std => <option key={std} value={std}>{std} Standard</option>)}
           </select>
         </div>
 
@@ -282,13 +360,13 @@ const Syllabus = () => {
                 <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', minHeight: '80px', resize: 'vertical' }} placeholder="e.g. Fundamental Theorem of Arithmetic, LCM and HCF..." />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="form-grid-row">
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Standard/Class</label>
                   <select value={formData.class_range} onChange={e => {
                       const newClass = e.target.value;
-                      const boards = BOARDS_BY_STANDARD[newClass] || [];
-                      const exams = EXAMS_BY_STANDARD[newClass] || [];
+                      const boards = activeBoardsByStd[newClass] || [];
+                      const exams = activeExamsByStd[newClass] || [];
                       const subjects = SUBJECTS_BY_STANDARD[newClass] || [];
                       setFormData({
                         ...formData, 
@@ -298,7 +376,7 @@ const Syllabus = () => {
                         subject: subjects.length > 0 ? subjects[0] : 'General'
                       });
                     }} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
-                    {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
@@ -314,7 +392,7 @@ const Syllabus = () => {
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>School Board / Stream</label>
                   <select value={formData.board} onChange={e => setFormData({...formData, board: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
-                    {(BOARDS_BY_STANDARD[formData.class_range] || []).map(b => <option key={b} value={b}>{b}</option>)}
+                    {(activeBoardsByStd[formData.class_range] || []).map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
               </div>
@@ -323,7 +401,7 @@ const Syllabus = () => {
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Target Examination</label>
                   <select value={formData.exam_target} onChange={e => setFormData({...formData, exam_target: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
-                    {(EXAMS_BY_STANDARD[formData.class_range] || []).map(x => <option key={x} value={x}>{x}</option>)}
+                    {(activeExamsByStd[formData.class_range] || []).map(x => <option key={x} value={x}>{x}</option>)}
                   </select>
                 </div>
               </div>

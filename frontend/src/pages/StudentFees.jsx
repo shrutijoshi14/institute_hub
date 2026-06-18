@@ -237,46 +237,294 @@ const StudentFees = () => {
     handleDirectPayment('GPay (Google Pay)');
   };
 
-  const generatePDF = (payment) => {
+  const numberToWords = (num) => {
+    const a = [
+      '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 
+      'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+    ];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    const convertHundreds = (n) => {
+      if (n === 0) return '';
+      let str = '';
+      if (n >= 100) {
+        str += a[Math.floor(n / 100)] + ' Hundred ';
+        n %= 100;
+      }
+      if (n >= 20) {
+        str += b[Math.floor(n / 10)] + ' ';
+        n %= 10;
+      }
+      if (n > 0) {
+        str += a[n] + ' ';
+      }
+      return str.trim();
+    };
+
+    if (num === 0) return 'Zero';
+    if (isNaN(num)) return '';
+
+    let temp = Math.floor(num);
+    let words = '';
+
+    if (temp >= 10000000) {
+      words += convertHundreds(Math.floor(temp / 10000000)) + ' Crore ';
+      temp %= 10000000;
+    }
+    if (temp >= 100000) {
+      words += convertHundreds(Math.floor(temp / 100000)) + ' Lakh ';
+      temp %= 100000;
+    }
+    if (temp >= 1000) {
+      words += convertHundreds(Math.floor(temp / 1000)) + ' Thousand ';
+      temp %= 1000;
+    }
+    if (temp > 0) {
+      words += convertHundreds(temp);
+    }
+
+    return (words.trim() + ' Only').replace(/\s+/g, ' ');
+  };
+
+  const generatePDF = async (payment) => {
     setDownloading(true);
-    const doc = new jsPDF();
     
-    // Header
-    doc.setFontSize(22);
+    // Calculate chronological previous paid and outstanding balance at the time of this payment
+    const chronologicalHistory = [...history].reverse();
+    let cumulativePaid = 0;
+    for (const p of chronologicalHistory) {
+      cumulativePaid += parseFloat(p.amount_paid);
+      if (p.id === payment.id) {
+        break;
+      }
+    }
+    const currentPaid = parseFloat(payment.amount_paid);
+    const prevPaid = cumulativePaid - currentPaid;
+    const outstanding = Math.max(0, parseFloat(feeSummary?.totalFees || 0) - cumulativePaid);
+    
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const amountVal = parseFloat(payment.amount_paid);
+    const taxableAmount = amountVal / 1.18;
+    const gstAmount = amountVal - taxableAmount;
+    
+    // Attempt loading real logo Url
+    let logoLoaded = false;
+    let logoImg = null;
+    if (settings.logoUrl && settings.logoUrl.startsWith('http')) {
+      try {
+        logoImg = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'Anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = (e) => reject(e);
+          img.src = settings.logoUrl;
+        });
+        logoLoaded = true;
+      } catch (e) {
+        console.warn('Fallback to vector logo:', e.message);
+      }
+    }
+
+    // --- Header Branding ---
+    if (logoLoaded && logoImg) {
+      doc.addImage(logoImg, 'PNG', 15, 15, 15, 15);
+    } else {
+      // Draw standard geometric logo
+      doc.setFillColor(37, 99, 235);
+      doc.circle(22, 22, 7, 'F');
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.text((settings.schoolName || 'I').charAt(0).toUpperCase(), 22, 25, { align: 'center' });
+    }
+
+    doc.setFont("helvetica", "bold");
     doc.setTextColor(37, 99, 235);
-    doc.text(settings.schoolName || 'Institute Hub', 105, 20, { align: 'center' });
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(settings.contactEmail || 'info@institute.com', 105, 27, { align: 'center' });
-    
-    doc.setLineWidth(0.5);
-    doc.line(20, 38, 190, 38);
-    
     doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text('FEE RECEIPT', 20, 50);
+    doc.text(settings.schoolName || 'Vasudev Classes', 34, 21);
     
-    doc.setFontSize(10);
-    doc.text(`Receipt #: REC-${payment.id}${Date.now().toString().slice(-4)}`, 140, 50);
-    doc.text(`Date: ${new Date(payment.payment_date).toLocaleDateString('en-GB')}`, 140, 55);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.setFontSize(8);
+    doc.text(settings.contactEmail || 'vasudev@gmail.com', 34, 25);
+    doc.text(`${settings.contactPhone || '+91 98765 43210'}  |  GSTIN: ${settings.gstin || '09ABCDE1234F1Z5'}`, 34, 29);
+    doc.text(settings.address || '123, Tech Park, Sector 62, Noida, Uttar Pradesh', 15, 38);
+
+    // --- Invoice Metadata ---
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(22);
+    doc.text('INVOICE / RECEIPT', 195, 22, { align: 'right' });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(`Receipt No: REC-${payment.id}`, 195, 29, { align: 'right' });
+    doc.text(`Date: ${new Date(payment.payment_date).toLocaleDateString('en-GB')}`, 195, 33, { align: 'right' });
+    doc.text(`Payment Mode: ${payment.payment_mode || 'Cash'}`, 195, 37, { align: 'right' });
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(15, 45, 195, 45);
+
+    // --- Billed To & Fee Summary Panels ---
+    // Billed To Box
+    doc.setFillColor(240, 249, 255);
+    doc.roundedRect(15, 50, 85, 30, 2, 2, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(2, 132, 199);
+    doc.text("BILLED TO", 19, 55);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(user?.name || 'Student', 19, 61);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Course: ${feeSummary?.courseTitle || 'N/A'}`, 19, 66);
+    doc.text(`Phone: ${user?.phone || 'N/A'}`, 19, 70);
+    doc.text(`Email: ${user?.email || 'N/A'}`, 19, 74);
+
+    // Fee Summary Box
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(110, 50, 85, 30, 2, 2, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100);
+    doc.text("FEE ACCOUNT SUMMARY", 114, 55);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Total Course Fee:  ₹${parseFloat(feeSummary?.totalFees || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 114, 61);
+    doc.text(`Previously Paid:   ₹${parseFloat(prevPaid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 114, 65);
+    doc.text(`Current Payment:   ₹${amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 114, 69);
     
-    doc.setFontSize(11);
-    doc.text('Billed To:', 20, 65);
-    doc.setFont(undefined, 'bold');
-    doc.text(user?.name || 'Student', 20, 70);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Course: ${feeSummary?.courseTitle || 'N/A'}`, 20, 75);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(220, 38, 38);
+    doc.text(`Remaining Balance: ₹${parseFloat(outstanding).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 114, 74);
+
+    // --- Table Listing ---
+    doc.setFillColor(15, 23, 42);
+    doc.rect(15, 87, 180, 8, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text("#", 18, 92);
+    doc.text("DESCRIPTION", 28, 92);
+    doc.text("QTY", 125, 92, { align: 'center' });
+    doc.text("UNIT PRICE", 155, 92, { align: 'right' });
+    doc.text("TOTAL", 191, 92, { align: 'right' });
+
+    // Table Content Row
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(15, 95, 180, 15);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text("1", 18, 101);
+    doc.text("Tuition Fee Installment Payment", 28, 101);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100);
+    doc.text(`Receipt against standard tuition fee allocation.`, 28, 106);
     
-    // Table content
-    doc.setFillColor(241, 245, 249);
-    doc.rect(20, 90, 170, 10, 'F');
-    doc.text('Description', 25, 96);
-    doc.text('Amount', 160, 96);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text("1", 125, 101, { align: 'center' });
+    doc.text(`₹${taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 155, 101, { align: 'right' });
+    doc.text(`₹${taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 101, { align: 'right' });
+
+    // --- Totals Section ---
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(100);
+    doc.text("Subtotal:", 150, 118, { align: 'right' });
+    doc.setTextColor(15, 23, 42);
+    doc.text(`₹${taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 118, { align: 'right' });
+
+    doc.setTextColor(100);
+    doc.text("Taxable Amount:", 150, 123, { align: 'right' });
+    doc.setTextColor(15, 23, 42);
+    doc.text(`₹${taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 123, { align: 'right' });
+
+    doc.setTextColor(100);
+    doc.text("GST (18% Inclusive):", 150, 128, { align: 'right' });
+    doc.setTextColor(15, 23, 42);
+    doc.text(`₹${gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 128, { align: 'right' });
+
+    // Total Banner
+    doc.setFillColor(15, 23, 42);
+    doc.rect(110, 133, 85, 9, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text("TOTAL PAID", 114, 139);
+    doc.text(`₹${amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 191, 139, { align: 'right' });
+
+    // Amount in Words Box
+    doc.setFillColor(248, 250, 252);
+    doc.rect(110, 145, 85, 12, 'F');
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(100);
+    doc.text("Amount in Words:", 113, 149);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    // Wrap text if words exceed width
+    const words = numberToWords(amountVal);
+    const splitWords = doc.splitTextToSize(words, 80);
+    doc.text(splitWords, 113, 153);
+
+    // --- Payment Information (Bottom Left) ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(2, 132, 199);
+    doc.text("PAYMENT INFORMATION", 15, 118);
     
-    doc.text(`${feeSummary?.fee_plan === 'EMI' ? 'EMI Installment' : 'Full Course Fee'}`, 25, 110);
-    doc.text(`Rs. ${payment.amount_paid}`, 160, 110);
-    
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(15, 121, 85, 28);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Bank Name: ${settings.bankName || 'HDFC Bank'}`, 18, 126);
+    doc.text(`Account Name: ${settings.accountName || 'Vasudev Classes'}`, 18, 130);
+    doc.text(`Account Number: ${settings.accountNumber || '50200012345678'}`, 18, 134);
+    doc.text(`IFSC Code: ${settings.ifscCode || 'HDFC0001234'}`, 18, 138);
+    doc.text(`UPI ID: ${settings.upiId || 'vasudev@upi'}`, 18, 142);
+
+    // --- Notes Section ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text("NOTES", 15, 158);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.text("1. Please review this invoice and keep it safe for future academic sessions.", 15, 163);
+    doc.text("2. This is a computer generated document and does not require a physical signature.", 15, 167);
+    doc.text(`3. For queries, contact administrative support at ${settings.contactEmail || 'vasudev@gmail.com'}.`, 15, 171);
+
+    // --- Cursive Thank You ---
+    doc.setFont("times", "italic");
+    doc.setFontSize(16);
+    doc.setTextColor(2, 132, 199);
+    doc.text("Thank You!", 15, 185);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text("We appreciate your business.", 15, 190);
+
+    // --- Footer Bar ---
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 282, 210, 15, 'F');
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text("Follow us: facebook.com  |  twitter.com  |  linkedin.com", 15, 291);
+    doc.text(`© ${new Date().getFullYear()} ${settings.schoolName || 'Vasudev Classes'}. All rights reserved.`, 195, 291, { align: 'right' });
+
     doc.save(`Receipt_${(settings.schoolName || 'Receipt').replace(/\s+/g, '_')}_${payment.id}.pdf`);
     setDownloading(false);
   };
@@ -319,7 +567,7 @@ const StudentFees = () => {
     }
   };
 
-  const upiString = `upi://pay?pa=pay@bank&pn=${encodeURIComponent(settings.schoolName || 'Institute Hub')}&am=${customAmount}&cu=INR&tn=Fee%20Payment`;
+  const upiString = `upi://pay?pa=${settings.upiId || 'vasudev@upi'}&pn=${encodeURIComponent(settings.schoolName || 'Vasudev Classes')}&am=${customAmount}&cu=INR&tn=Fee%20Payment`;
 
   if (loading) {
     return (
@@ -802,7 +1050,17 @@ const StudentFees = () => {
                           <QRCodeCanvas value={upiString} size={150} />
                         </div>
                       </div>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Scan this QR using any UPI app like GPay, PhonePe, or BHIM</p>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>Scan this QR using any UPI app like GPay, PhonePe, or BHIM</p>
+                      
+                      <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '12px', border: '1px solid #E2E8F0', textAlign: 'left', marginBottom: '1.5rem', fontSize: '0.825rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <strong style={{ color: '#475569', fontSize: '0.875rem', marginBottom: '4px' }}>Bank Transfer Details (Alternative):</strong>
+                        <div><span style={{ color: '#64748B' }}>Bank Name:</span> <strong>{settings.bankName || 'HDFC Bank'}</strong></div>
+                        <div><span style={{ color: '#64748B' }}>Account Name:</span> <strong>{settings.accountName || 'Vasudev Classes'}</strong></div>
+                        <div><span style={{ color: '#64748B' }}>Account Number:</span> <strong>{settings.accountNumber || '50200012345678'}</strong></div>
+                        <div><span style={{ color: '#64748B' }}>IFSC Code:</span> <strong>{settings.ifscCode || 'HDFC0001234'}</strong></div>
+                        <div><span style={{ color: '#64748B' }}>UPI ID:</span> <strong>{settings.upiId || 'vasudev@upi'}</strong></div>
+                      </div>
+                      
                       <button onClick={handleSimulatedPayment} style={{ background: '#10B981', color: 'white', padding: '1rem 2rem', borderRadius: '12px', border: 'none', fontWeight: 600, width: '100%', cursor: 'pointer' }}>
                         I have scanned and paid
                       </button>

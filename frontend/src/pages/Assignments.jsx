@@ -8,6 +8,7 @@ import DeleteModal from '../components/DeleteModal';
 const Assignments = () => {
   const { user, role } = useAuth();
   const [msg, setMsg] = useState('');
+  const [settings, setSettings] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [studentSubmissions, setStudentSubmissions] = useState([]);
@@ -84,13 +85,17 @@ const Assignments = () => {
     if (role === 'admin' || role === 'faculty') {
       const fetchInitialData = async () => {
         try {
-          const [courseRes, batchRes] = await Promise.all([
+          const [courseRes, batchRes, settingsRes] = await Promise.all([
             axios.get('http://localhost:5000/api/courses'),
-            axios.get('http://localhost:5000/api/batches')
+            axios.get('http://localhost:5000/api/batches'),
+            axios.get('http://localhost:5000/api/settings').catch(() => ({ data: null }))
           ]);
           setCourses(courseRes.data || []);
           setBatches(batchRes.data || []);
           setSelectedCourseId('All');
+          if (settingsRes && settingsRes.data) {
+            setSettings(settingsRes.data);
+          }
         } catch (err) {
            console.error(err);
         }
@@ -277,6 +282,10 @@ const Assignments = () => {
     return true;
   });
 
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
+  const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
+
   if (role === 'admin' || role === 'faculty') {
     return (
       <div>
@@ -293,7 +302,7 @@ const Assignments = () => {
               style={{ padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
             >
               <option value="All">All Standards</option>
-              {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+              {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
 
             <select 
@@ -302,7 +311,7 @@ const Assignments = () => {
               style={{ padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
             >
               <option value="All">All Boards</option>
-              {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+              {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
 
             <select 
@@ -311,7 +320,7 @@ const Assignments = () => {
               style={{ padding: '0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
             >
               <option value="All">All Exams</option>
-              {EXAMS.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+              {activeExams.map(ex => <option key={ex} value={ex}>{ex}</option>)}
             </select>
 
             <select 

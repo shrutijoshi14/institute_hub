@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Plus, Trash2, Edit, X, Users } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, Edit, X, Users, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { STANDARDS, BOARDS, EXAMS } from '../utils/constants';
 import DeleteModal from '../components/DeleteModal';
 
 const Batches = () => {
   const navigate = useNavigate();
   const [msg, setMsg] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
+  const [settings, setSettings] = useState(null);
   const [batches, setBatches] = useState([]);
   const [courses, setCourses] = useState([]);
   const [facultyList, setFacultyList] = useState([]);
@@ -43,14 +57,18 @@ const Batches = () => {
 
   const fetchData = async () => {
     try {
-      const [batchesRes, facultyRes, coursesRes] = await Promise.all([
+      const [batchesRes, facultyRes, coursesRes, settingsRes] = await Promise.all([
         axios.get('http://localhost:5000/api/batches'),
         axios.get('http://localhost:5000/api/faculty'),
-        axios.get('http://localhost:5000/api/courses')
+        axios.get('http://localhost:5000/api/courses'),
+        axios.get('http://localhost:5000/api/settings').catch(() => ({ data: null }))
       ]);
       setBatches(batchesRes.data);
       setFacultyList(facultyRes.data);
       setCourses(coursesRes.data);
+      if (settingsRes && settingsRes.data) {
+        setSettings(settingsRes.data);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -106,19 +124,21 @@ const Batches = () => {
 
       setFormData({
         name: batch.name,
-        standard: batch.standard || '11th',
-        board: batch.board || 'State Board',
+        standard: batch.standard || (activeStandards[0] || '11th'),
+        board: batch.board || (activeBoards[0] || 'State Board'),
         timing: batch.timing,
         facultyIds: batch.Faculties ? batch.Faculties.map(f => f.id) : []
       });
     } else {
       setEditingBatch(null);
+      const defaultStd = activeStandards[0] || '11th';
+      const defaultBrd = activeBoards[0] || 'State Board';
       setNameParts({ time: 'Morning', no: '1', year: new Date().getFullYear().toString() });
       setTimingParts({ startHour: '08', startMin: '00', startAmPm: 'AM', endHour: '10', endMin: '00', endAmPm: 'AM' });
       setFormData({
-        name: `Morning - 11th - State Board - Batch 1 - ${new Date().getFullYear()}`,
-        standard: '11th',
-        board: 'State Board',
+        name: `Morning - ${defaultStd} - ${defaultBrd} - Batch 1 - ${new Date().getFullYear()}`,
+        standard: defaultStd,
+        board: defaultBrd,
         timing: '08:00 AM - 10:00 AM',
         facultyIds: []
       });
@@ -166,20 +186,22 @@ const Batches = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    const isEditing = !!editingBatch;
+    const data = { ...formData };
+    setShowModal(false); // Modal disappears immediately
+    showToast(isEditing ? 'Updating batch...' : 'Creating batch...', 'info');
     try {
-      if (editingBatch) {
-        await axios.put(`http://localhost:5000/api/batches/${editingBatch}`, formData);
-        setMsg(`✅ Batch updated successfully!`);
+      if (isEditing) {
+        await axios.put(`http://localhost:5000/api/batches/${editingBatch}`, data);
+        showToast('Batch updated successfully!', 'success');
       } else {
-        await axios.post('http://localhost:5000/api/batches', formData);
-        setMsg(`✅ Batch created successfully!`);
+        await axios.post('http://localhost:5000/api/batches', data);
+        showToast('Batch created successfully!', 'success');
       }
       fetchData();
-      setShowModal(false);
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error saving batch.');
+      showToast('Error saving batch.', 'error');
     }
   };
 
@@ -190,14 +212,15 @@ const Batches = () => {
   };
 
   const confirmDelete = async () => {
+    setShowDeleteModal(false); // Modal disappears immediately
+    showToast('Deleting batch...', 'info');
     try {
       await axios.delete(`http://localhost:5000/api/batches/${deletingId}`);
-      setMsg(`✅ Batch deleted successfully.`);
-      setShowDeleteModal(false);
+      showToast('Batch deleted successfully.', 'success');
       fetchData();
-      setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       console.error(err);
+      showToast('Error deleting batch.', 'error');
     }
   };
 
@@ -215,8 +238,56 @@ const Batches = () => {
     return true;
   });
 
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
+  const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
+  const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
+
   return (
     <div>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Batches Management</h1>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -226,7 +297,7 @@ const Batches = () => {
             style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
           >
             <option value="All">All Standards</option>
-            {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+            {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select 
             value={selectedBoard} 
@@ -234,7 +305,7 @@ const Batches = () => {
             style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
           >
             <option value="All">All Boards</option>
-            {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+            {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
           <select 
             value={selectedExam} 
@@ -242,7 +313,7 @@ const Batches = () => {
             style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'white', minWidth: '130px' }}
           >
             <option value="All">All Exams</option>
-            {EXAMS.map(ex => <option key={ex} value={ex}>{ex}</option>)}
+            {activeExams.map(ex => <option key={ex} value={ex}>{ex}</option>)}
           </select>
           <button className="btn btn-primary" onClick={() => openForm()}>
             <Plus size={18} /> New Batch
@@ -348,13 +419,13 @@ const Batches = () => {
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Standard/Class</label>
                   <select value={formData.standard} onChange={handleStandardChange} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
-                    {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Board</label>
                   <select value={formData.board} onChange={handleBoardChange} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: '#F8FAFC' }}>
-                    {BOARDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    {activeBoards.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
               </div>

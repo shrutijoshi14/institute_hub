@@ -1,5 +1,6 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config({ override: true });
+const { initializeSettings } = require('./settingsCache');
 
 // Determine whether to use local MySQL database or live Supabase/Postgre database.
 // 1. If running on Render (process.env.RENDER is 'true'), use live database.
@@ -66,6 +67,9 @@ const connectDB = async () => {
         await sequelize.authenticate();
         console.log(`Database connected successfully via Sequelize (${sequelize.getDialect()}).`);
         await sequelize.sync();
+        
+        // Initialize settings cache from DB (or seed defaults)
+        await initializeSettings();
         
         // Run dialect-specific migrations/adjustments
         const isMySQL = sequelize.getDialect() === 'mysql';
@@ -351,6 +355,25 @@ const connectDB = async () => {
             }
         } catch (backfillErr) {
             console.log('Notice: Backfill migration query details:', backfillErr.message);
+        }
+
+        // Check for empty database and auto-seed
+        try {
+            const User = require('../models/User');
+            const userCount = await User.count();
+            if (userCount === 0) {
+                console.log('⚠️ No users found in database! Automatically seeding the database with realistic multi-role data...');
+                const { execSync } = require('child_process');
+                const path = require('path');
+                try {
+                    execSync('node seed.js', { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
+                    console.log('✅ Database seeded successfully!');
+                } catch (seedErr) {
+                    console.error('Failed to auto-seed database:', seedErr.message);
+                }
+            }
+        } catch (countErr) {
+            console.log('Notice: User count query details:', countErr.message);
         }
 
     } catch (error) {

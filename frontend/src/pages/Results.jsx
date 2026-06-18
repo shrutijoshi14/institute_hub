@@ -8,6 +8,7 @@ import { STANDARDS } from '../utils/constants';
 const Results = () => {
   const { user, role } = useAuth();
   const [msg, setMsg] = useState('');
+  const [settings, setSettings] = useState(null);
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState('');
@@ -21,6 +22,20 @@ const Results = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [deletingName, setDeletingName] = useState('');
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/settings');
+        setSettings(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const activeStandards = settings?.standards && settings.standards.length > 0 ? settings.standards : STANDARDS;
 
   const fetchData = async () => {
     try {
@@ -136,7 +151,7 @@ const Results = () => {
                   style={{ border: 'none', outline: 'none', background: 'transparent', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)' }}
                 >
                   <option value="All">All Standards</option>
-                  {STANDARDS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {activeStandards.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
              </div>
              <select 

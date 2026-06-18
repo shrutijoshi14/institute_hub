@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2, CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { STANDARDS } from '../utils/constants';
 
@@ -9,7 +9,15 @@ const Settings = () => {
     schoolName: '',
     logoUrl: '',
     contactEmail: '',
+    contactPhone: '',
     iconName: '',
+    address: '',
+    gstin: '',
+    bankName: '',
+    accountName: '',
+    accountNumber: '',
+    ifscCode: '',
+    upiId: '',
     standardFees: {},
     standards: [],
     boards: [],
@@ -19,6 +27,19 @@ const Settings = () => {
   });
   const [msg, setMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => {
+        setToast(prev => ({ ...prev, show: false }));
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
 
   const [newStandard, setNewStandard] = useState('');
   const [newBoard, setNewBoard] = useState('');
@@ -176,13 +197,13 @@ const Settings = () => {
   const handleSave = async (e) => {
     if (e) e.preventDefault();
     setIsSaving(true);
+    showToast('Saving settings...', 'info');
     try {
       await axios.put('http://localhost:5000/api/settings', settings);
-      setMsg('✅ Settings updated successfully! Refresh the page to see logo changes (if applied globally).');
-      setTimeout(() => setMsg(''), 4000);
+      showToast('Settings updated successfully! Refresh the page to see logo changes (if applied globally).', 'success');
     } catch (err) {
       console.error(err);
-      setMsg('❌ Error updating settings.');
+      showToast('Error updating settings.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -190,6 +211,76 @@ const Settings = () => {
 
   return (
     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: 'calc(100vh - 120px)', position: 'relative' }}>
+      <style>{`
+        @keyframes slideIn {
+          from {
+            transform: translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        @media (max-width: 1024px) {
+          .grid-cols-2 {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 1.5rem !important;
+          }
+        }
+        .mapping-header-row {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+          border-bottom: 1px solid #E2E8F0;
+          padding-bottom: 1rem;
+        }
+        @media (max-width: 640px) {
+          .mapping-header-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .mapping-header-row select {
+            width: 100% !important;
+          }
+        }
+      `}</style>
+
+      {/* Floating Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: toast.type === 'success' ? '#10B981' : toast.type === 'error' ? '#EF4444' : '#3B82F6',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontWeight: 600,
+          fontSize: '0.95rem',
+          animation: 'slideIn 0.3s ease-out',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          {toast.type === 'success' ? <CheckCircle size={20} /> : toast.type === 'error' ? <AlertCircle size={20} /> : <Info size={20} />}
+          <span>{toast.message}</span>
+          <button 
+            type="button"
+            onClick={() => setToast(prev => ({ ...prev, show: false }))} 
+            style={{ background: 'none', border: 'none', color: 'white', display: 'flex', padding: 0, cursor: 'pointer' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>Institution Settings</h1>
       </div>
@@ -264,6 +355,110 @@ const Settings = () => {
             </div>
           </div>
 
+          <div className="card">
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Invoice & Billing Configurations</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginBottom: '1.25rem' }}>
+              These parameters will be dynamically populated in generated fee receipt PDFs/invoices.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.8rem' }}>Contact Phone</label>
+                <input 
+                  type="text" 
+                  name="contactPhone"
+                  value={settings.contactPhone || ''}
+                  onChange={handleChange}
+                  className="form-control"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.8rem' }}>Billing Address</label>
+                <textarea 
+                  name="address"
+                  value={settings.address || ''}
+                  onChange={handleChange}
+                  className="form-control"
+                  rows={2}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.875rem', resize: 'vertical', fontFamily: 'inherit' }}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.8rem' }}>GSTIN (GST Number)</label>
+                <input 
+                  type="text" 
+                  name="gstin"
+                  value={settings.gstin || ''}
+                  onChange={handleChange}
+                  className="form-control"
+                  placeholder="e.g. 09ABCDE1234F1Z5"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.875rem' }}
+                />
+              </div>
+              
+              <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginTop: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.25rem', color: 'var(--text-secondary)' }}>Payment Information</h3>
+              
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.8rem' }}>Bank Name</label>
+                <input 
+                  type="text" 
+                  name="bankName"
+                  value={settings.bankName || ''}
+                  onChange={handleChange}
+                  className="form-control"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.8rem' }}>Account Name</label>
+                <input 
+                  type="text" 
+                  name="accountName"
+                  value={settings.accountName || ''}
+                  onChange={handleChange}
+                  className="form-control"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.8rem' }}>Account Number</label>
+                <input 
+                  type="text" 
+                  name="accountNumber"
+                  value={settings.accountNumber || ''}
+                  onChange={handleChange}
+                  className="form-control"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.8rem' }}>IFSC Code</label>
+                <input 
+                  type="text" 
+                  name="ifscCode"
+                  value={settings.ifscCode || ''}
+                  onChange={handleChange}
+                  className="form-control"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.875rem' }}
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 500, fontSize: '0.8rem' }}>UPI ID</label>
+                <input 
+                  type="text" 
+                  name="upiId"
+                  value={settings.upiId || ''}
+                  onChange={handleChange}
+                  className="form-control"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.875rem' }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Logo Preview & Tuition Fees */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#F8FAFC', padding: '2rem' }}>
             <h3 style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '1rem', fontWeight: 600 }}>Current Logo Preview</h3>
             {settings.logoUrl && settings.logoUrl.startsWith('http') ? (
@@ -284,10 +479,7 @@ const Settings = () => {
               {settings.schoolName || 'Institute Hub'}
             </h2>
           </div>
-        </div>
 
-        {/* Right Column: Tuition Fees */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="card">
             <h2>Standard-wise Tuition Fees</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
@@ -295,7 +487,7 @@ const Settings = () => {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                {(settings.standards && settings.standards.length > 0 ? settings.standards : STANDARDS).map(std => (
-                 <div key={std} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                 <div key={std} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem 1rem' }}>
                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#334155' }}>{std} Standard</span>
                    <div style={{ position: 'relative', width: '160px' }}>
                      <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#64748B', fontWeight: 600 }}>₹</span>
@@ -324,7 +516,7 @@ const Settings = () => {
         </p>
 
         {/* 3-Column Master Lists */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', marginBottom: '2rem' }}>
+        <div className="grid-cols-3" style={{ gap: '1.5rem', marginBottom: '2rem' }}>
           {/* Standards Master */}
           <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1rem', backgroundColor: '#FFF' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 600, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>Standards</h3>
@@ -421,13 +613,13 @@ const Settings = () => {
 
         {/* Relationship Mapping Section */}
         <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1.5rem', backgroundColor: '#F8FAFC' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #E2E8F0', paddingBottom: '1rem' }}>
+          <div className="mapping-header-row">
             <h3 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0 }}>Configure Mappings for Standard:</h3>
             <select
               value={selectedMappingStandard}
               onChange={e => setSelectedMappingStandard(e.target.value)}
               className="form-control"
-              style={{ padding: '0.5rem 1.5rem 0.5rem 0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontWeight: 600, minWidth: '200px' }}
+              style={{ padding: '0.5rem 1.5rem 0.5rem 0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontWeight: 600, minWidth: '200px', maxWidth: '100%' }}
             >
               <option value="">-- Select Standard --</option>
               {(settings.standards || []).map(std => (
@@ -437,20 +629,20 @@ const Settings = () => {
           </div>
 
           {selectedMappingStandard ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '2rem' }}>
               {/* Board Mapping Checkboxes */}
               <div>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#334155', marginBottom: '0.75rem' }}>Associated Boards</h4>
-                <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '0.75rem', backgroundColor: '#FFF', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '0.75rem', backgroundColor: '#FFF', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
                   {(settings.boards || []).map(board => {
                     const isMapped = (settings.boardsByStandard?.[selectedMappingStandard] || []).includes(board);
                     return (
-                      <label key={board} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                      <label key={board} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer', justifyContent: 'flex-start', width: 'max-content' }}>
                         <input
                           type="checkbox"
                           checked={isMapped}
                           onChange={() => handleToggleBoardMapping(selectedMappingStandard, board)}
-                          style={{ cursor: 'pointer' }}
+                          style={{ cursor: 'pointer', width: 'auto', flexShrink: 0 }}
                         />
                         {board}
                       </label>
@@ -465,16 +657,16 @@ const Settings = () => {
               {/* Exam Mapping Checkboxes */}
               <div>
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#334155', marginBottom: '0.75rem' }}>Associated Exams</h4>
-                <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '0.75rem', backgroundColor: '#FFF', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '0.75rem', backgroundColor: '#FFF', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-start' }}>
                   {(settings.exams || []).map(exam => {
                     const isMapped = (settings.examsByStandard?.[selectedMappingStandard] || []).includes(exam);
                     return (
-                      <label key={exam} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                      <label key={exam} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer', justifyContent: 'flex-start', width: 'max-content' }}>
                         <input
                           type="checkbox"
                           checked={isMapped}
                           onChange={() => handleToggleExamMapping(selectedMappingStandard, exam)}
-                          style={{ cursor: 'pointer' }}
+                          style={{ cursor: 'pointer', width: 'auto', flexShrink: 0 }}
                         />
                         {exam}
                       </label>
