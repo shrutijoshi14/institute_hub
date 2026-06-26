@@ -49,8 +49,8 @@ User.hasMany(FeePayment, { foreignKey: 'student_id' });
 FeePayment.belongsTo(User, { foreignKey: 'student_id' });
 
 // Batch & Faculty (Many-to-Many)
-Batch.belongsToMany(Faculty, { through: BatchFaculty, foreignKey: 'batch_id' });
-Faculty.belongsToMany(Batch, { through: BatchFaculty, foreignKey: 'faculty_id' });
+Batch.belongsToMany(Faculty, { through: BatchFaculty, foreignKey: 'batch_id', otherKey: 'faculty_id' });
+Faculty.belongsToMany(Batch, { through: BatchFaculty, foreignKey: 'faculty_id', otherKey: 'batch_id' });
 
 // BatchProgress & Batch & Course
 Batch.hasMany(BatchProgress, { foreignKey: 'batch_id' });

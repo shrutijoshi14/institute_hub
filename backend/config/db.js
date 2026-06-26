@@ -149,7 +149,15 @@ const connectDB = async () => {
                 console.log('Notice: batch_progress class_date column check details:', err.message);
             }
         } else if (isPostgres) {
-            console.log('PostgreSQL/Supabase detected. Skipping MySQL-specific ALTER TABLE queries. Sequelize sync has already created/aligned columns.');
+            console.log('PostgreSQL/Supabase detected. Skipping MySQL-specific ALTER TABLE queries. Checking and adding any missing columns...');
+            try {
+                await sequelize.query(`
+                    ALTER TABLE batch_progress ADD COLUMN IF NOT EXISTS class_date DATE DEFAULT NULL
+                `);
+                console.log('Notice: batch_progress class_date column added on PostgreSQL.');
+            } catch (err) {
+                console.log('Notice: batch_progress class_date column check details on PostgreSQL:', err.message);
+            }
         }
 
         console.log('Database synced successfully.');
