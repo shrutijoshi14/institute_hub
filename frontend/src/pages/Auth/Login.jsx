@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { Lock, AtSign, Users, AlertCircle, Eye, EyeOff, Loader2, ArrowRight, Phone, Key, ShieldCheck, Fingerprint } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
+import { GOOGLE_CLIENT_ID } from '../../config/googleConfig';
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '0.25rem' }}>
@@ -171,7 +172,7 @@ const Login = () => {
     setError('');
     setSuccessMsg('');
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const clientId = GOOGLE_CLIENT_ID;
     
     // Fallback to Google Accounts Sandbox Simulator if Client ID is unconfigured or mock
     if (!window.google || !clientId || clientId.includes('mockclientid')) {
