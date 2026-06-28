@@ -69,12 +69,12 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
           <Route path="/enquiry" element={<PublicEnquiry />} />
           
           {/* Secured Application Shell */}
           <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route index element={<DashboardRouter />} />
+            <Route path="register" element={<Register />} />
             
             {/* Admin Modules */}
             <Route path="enquiries" element={<Enquiries />} />

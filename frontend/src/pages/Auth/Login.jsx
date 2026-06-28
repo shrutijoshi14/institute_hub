@@ -804,7 +804,7 @@ const Login = () => {
           
           <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                New student? <Link to="/register" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>Register for Admission</Link>
+                New student? <Link to="/enquiry" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>Submit an Admission Enquiry</Link>
              </p>
              <div style={{ marginTop: '2rem', fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.7 }}>
                 &copy; {new Date().getFullYear()} {settings.schoolName || 'Institute Hub'}<br/>
