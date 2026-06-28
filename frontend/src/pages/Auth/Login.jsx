@@ -697,7 +697,8 @@ const Login = () => {
                   <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)' }}></div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                  {/* Google Login is temporarily commented out - uncomment block below to enable
                   <button
                     type="button"
                     onClick={handleGoogleLogin}
@@ -705,6 +706,7 @@ const Login = () => {
                   >
                     <GoogleIcon /> Google
                   </button>
+                  */}
                   <button
                     type="button"
                     onClick={handleBiometricLogin}
