@@ -167,58 +167,35 @@ const Login = () => {
     }
   };
 
-  // 4. Google Login Flow (Real Google OAuth 2.0 Integration)
+  // 4. Google Login Flow (Simulated Mock Integration to prevent SDK errors and Phishing flags)
   const handleGoogleLogin = () => {
     setError('');
     setSuccessMsg('');
 
-    const clientId = GOOGLE_CLIENT_ID;
+    const emailVal = prompt(
+      "SIMULATED GOOGLE LOGIN\n\nEnter mock email (e.g., rahul@student.com, admin@ambition.com, parent01@gmail.com):",
+      formData.role === 'student' ? 'rahul@student.com' : 'admin@ambition.com'
+    );
 
-    if (!window.google) {
-      setError('Google Sign-In SDK is loading. Please refresh and try again.');
-      return;
-    }
+    if (!emailVal || !emailVal.trim()) return;
 
-    // Real Google Identity Services (GIS) Sign-In Popup
-    try {
-      const client = window.google.accounts.oauth2.initImplicitFlow({
-        client_id: clientId,
-        scope: 'email profile openid',
-        callback: async (tokenResponse) => {
-          if (tokenResponse && tokenResponse.access_token) {
-            setLoading(true);
-            try {
-              const userInfoRes = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
-              });
-
-              const { email, sub: google_id } = userInfoRes.data;
-
-              const res = await axios.post('http://localhost:5000/api/auth/google-login', {
-                email: email,
-                google_id: google_id,
-                role: formData.role
-              });
-
-              const { role, name, userId, childId, username, password } = res.data;
-              login({ role, name, id: userId, childId, username, password });
-              navigate('/');
-            } catch (err) {
-              setError(err.response?.data?.msg || 'Google account not linked or registered under this role.');
-            } finally {
-              setLoading(false);
-            }
-          } else {
-            setError('Google sign-in authorization was cancelled or failed.');
-          }
-        }
-      });
-
-      client.requestAccessToken();
-    } catch (sdkErr) {
-      console.error('Google Sign-In initialization error:', sdkErr);
-      setError('Could not connect to Google auth services. Please check client ID.');
-    }
+    setLoading(true);
+    axios.post('http://localhost:5000/api/auth/google-login', {
+      email: emailVal.trim(),
+      google_id: `google_mock_${Date.now()}`,
+      role: formData.role
+    })
+    .then(res => {
+      const { role, name, userId, childId, username, password } = res.data;
+      login({ role, name, id: userId, childId, username, password });
+      navigate('/');
+    })
+    .catch(err => {
+      setError(err.response?.data?.msg || 'No account matches this Google profile for the selected role.');
+    })
+    .finally(() => {
+      setLoading(false);
+    });
   };
 
   // 5. Biometric WebAuthn Login
