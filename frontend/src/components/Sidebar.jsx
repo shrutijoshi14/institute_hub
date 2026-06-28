@@ -4,7 +4,7 @@ import { LayoutDashboard, Users, UserPlus, BookOpen, GraduationCap, DollarSign, 
 import * as LucideIcons from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const Sidebar = ({ isOpen, settings }) => {
+const Sidebar = ({ isOpen, settings, onNavItemClick }) => {
   const { role } = useAuth();
   
   const schoolName = settings?.schoolName || 'Institute Hub';
@@ -22,7 +22,11 @@ const Sidebar = ({ isOpen, settings }) => {
         )}
         <span className="sidebar-text" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{schoolName}</span>
       </div>
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" onClick={(e) => {
+        if (e.target.closest('a') && window.innerWidth <= 768) {
+          if (onNavItemClick) onNavItemClick();
+        }
+      }}>
         
         {/* Common Dashboard Link */}
         <NavLink to="/" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} end>
@@ -120,12 +124,10 @@ const Sidebar = ({ isOpen, settings }) => {
           </NavLink>
         )}
 
-        {(role === 'admin' || role === 'super-admin') && (
-          <NavLink to="/settings" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-            <Settings size={20} style={{ flexShrink: 0 }} />
-            <span className="sidebar-text">Settings</span>
-          </NavLink>
-        )}
+        <NavLink to="/settings" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+          <Settings size={20} style={{ flexShrink: 0 }} />
+          <span className="sidebar-text">Settings</span>
+        </NavLink>
 
         {/* Faculty Links */}
         {role === 'faculty' && (

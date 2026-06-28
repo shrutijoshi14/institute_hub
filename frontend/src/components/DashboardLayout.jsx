@@ -32,7 +32,7 @@ const DashboardLayout = () => {
 
   return (
     <div className="dashboard-layout">
-      <SidebarNavigation isOpen={isSidebarOpen} settings={settings} />
+      <SidebarNavigation isOpen={isSidebarOpen} settings={settings} onNavItemClick={() => setIsSidebarOpen(false)} />
       {isSidebarOpen && (
         <div 
           className="sidebar-backdrop" 

@@ -148,6 +148,23 @@ const connectDB = async () => {
             } catch (err) {
                 console.log('Notice: batch_progress class_date column check details:', err.message);
             }
+
+            // Safe ALTER for MySQL
+            const addColumnSafely = async (table, column, definition) => {
+                try {
+                    await sequelize.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+                    console.log(`MySQL: Column ${column} added to ${table}.`);
+                } catch (err) {
+                    // Ignore column already exists errors
+                }
+            };
+            await addColumnSafely('users', 'google_id', "VARCHAR(255) DEFAULT NULL UNIQUE");
+            await addColumnSafely('users', 'otp_code', "VARCHAR(10) DEFAULT NULL");
+            await addColumnSafely('users', 'otp_expiry', "DATETIME DEFAULT NULL");
+            await addColumnSafely('users', 'biometric_credential_id', "TEXT DEFAULT NULL");
+            await addColumnSafely('users', 'biometric_public_key', "TEXT DEFAULT NULL");
+            await addColumnSafely('users', 'biometric_sign_count', "INT DEFAULT 0");
+
         } else if (isPostgres) {
             console.log('PostgreSQL/Supabase detected. Skipping MySQL-specific ALTER TABLE queries. Checking and adding any missing columns...');
             try {
@@ -158,6 +175,22 @@ const connectDB = async () => {
             } catch (err) {
                 console.log('Notice: batch_progress class_date column check details on PostgreSQL:', err.message);
             }
+
+            // Safe ALTER for PostgreSQL
+            const addColumnPgSafely = async (table, column, definition) => {
+                try {
+                    await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${definition}`);
+                    console.log(`PostgreSQL: Column ${column} added to ${table}.`);
+                } catch (err) {
+                    // Ignore
+                }
+            };
+            await addColumnPgSafely('users', 'google_id', "VARCHAR(255) UNIQUE DEFAULT NULL");
+            await addColumnPgSafely('users', 'otp_code', "VARCHAR(10) DEFAULT NULL");
+            await addColumnPgSafely('users', 'otp_expiry', "TIMESTAMP DEFAULT NULL");
+            await addColumnPgSafely('users', 'biometric_credential_id', "TEXT DEFAULT NULL");
+            await addColumnPgSafely('users', 'biometric_public_key', "TEXT DEFAULT NULL");
+            await addColumnPgSafely('users', 'biometric_sign_count', "INTEGER DEFAULT 0");
         }
 
         console.log('Database synced successfully.');

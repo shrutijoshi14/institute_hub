@@ -34,8 +34,8 @@ router.post('/', async (req, res) => {
     try {
         const { name, email, username, phone, class: className, board, course_interest, password, fee_plan, total_installments, parent_username, parent_password, parent_name, parent_phone, address, dob, blood_group } = req.body;
 
-        if (!name || !phone || !className || !board || !course_interest || !password) {
-            return res.status(400).json({ msg: 'Please provide all required fields.' });
+        if (!name || !phone || !className || !board || !course_interest) {
+            return res.status(400).json({ msg: 'Please provide all required fields: name, phone, class, board, and course interest.' });
         }
 
         // Check if user already exists

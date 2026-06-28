@@ -69,6 +69,32 @@ const User = sequelize.define('User', {
     blood_group: {
         type: DataTypes.STRING,
         allowNull: true
+    },
+    google_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
+    },
+    otp_code: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    otp_expiry: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    biometric_credential_id: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    biometric_public_key: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    biometric_sign_count: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0
     }
 }, {
     tableName: 'users',

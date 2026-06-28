@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in - Google Accounts</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+    }
+
+    body {
+      background-color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #202124;
+      font-size: 14px;
+    }
+
+    @media (min-width: 450px) {
+      body {
+        background-color: #f0f4f9;
+      }
+    }
+
+    .container {
+      width: 100%;
+      max-width: 450px;
+      background: #ffffff;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      justify-content: space-between;
+    }
+
+    @media (min-width: 450px) {
+      .container {
+        border: 1px solid #dadce0;
+        border-radius: 8px;
+        min-height: auto;
+        height: 520px;
+        padding: 36px 40px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+      }
+    }
+
+    .logo-container {
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .logo {
+      height: 24px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 400;
+      line-height: 1.3333;
+      margin-bottom: 8px;
+      color: #202124;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.5;
+      color: #202124;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .screen {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Account Chooser List */
+    .account-list {
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .account-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #dadce0;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .account-item:last-child {
+      border-bottom: none;
+    }
+
+    .account-item:hover {
+      background-color: #f8f9fa;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background-color: #1a73e8;
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+    }
+
+    .account-details {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-grow: 1;
+    }
+
+    .account-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #3c4043;
+    }
+
+    .account-email-text {
+      font-size: 12px;
+      color: #5f6368;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .use-another-btn {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      cursor: pointer;
+      color: #1a73e8;
+      font-weight: 500;
+      gap: 12px;
+      transition: background-color 0.15s ease;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .use-another-btn:hover {
+      background-color: #f8f9fa;
+    }
+
+    .use-another-avatar {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background-color: transparent;
+      border: 1.5px solid #1a73e8;
+    }
+
+    /* Floating Input Field */
+    .input-group {
+      position: relative;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 16px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+      background: transparent;
+    }
+
+    .input-field:focus {
+      border-color: #1a73e8;
+      border-width: 2px;
+      padding: 15px;
+    }
+
+    .input-label {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #ffffff;
+      padding: 0 4px;
+      color: #5f6368;
+      font-size: 16px;
+      pointer-events: none;
+      transition: all 0.15s ease-out;
+    }
+
+    .input-field:focus ~ .input-label,
+    .input-field:not(:placeholder-shown) ~ .input-label {
+      top: 0;
+      font-size: 12px;
+      color: #1a73e8;
+      font-weight: 500;
+    }
+
+    .input-field.error {
+      border-color: #d93025;
+      border-width: 2px;
+      padding: 15px;
+    }
+
+    .input-field.error ~ .input-label {
+      color: #d93025;
+    }
+
+    .error-text {
+      color: #d93025;
+      font-size: 12px;
+      margin-top: -15px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Consent View Styling */
+    .consent-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .consent-avatar-big {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background-color: #1a73e8;
+      color: white;
+      font-size: 28px;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .consent-email-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #202124;
+      margin-bottom: 4px;
+    }
+
+    .consent-email-sub {
+      font-size: 13px;
+      color: #5f6368;
+      margin-bottom: 24px;
+    }
+
+    .consent-disclaimer {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #5f6368;
+      text-align: left;
+      border-top: 1px solid #dadce0;
+      padding-top: 16px;
+    }
+
+    /* Links & Buttons Layout */
+    .action-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+      padding-top: 20px;
+    }
+
+    .text-link {
+      color: #1a73e8;
+      font-weight: 500;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-size: 14px;
+      transition: color 0.15s ease;
+    }
+
+    .text-link:hover {
+      color: #1557b0;
+    }
+
+    .btn-primary {
+      background-color: #1a73e8;
+      color: #ffffff;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .btn-primary:hover {
+      background-color: #1557b0;
+      box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: #1a73e8;
+      border: 1px solid #dadce0;
+      padding: 9px 24px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .btn-secondary:hover {
+      background-color: #f4f8fe;
+      border-color: #d2e3fc;
+    }
+
+    /* Footer styles */
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #70757a;
+      margin-top: 20px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 16px;
+    }
+
+    .footer-link {
+      color: #70757a;
+      text-decoration: none;
+    }
+
+    .footer-link:hover {
+      color: #202124;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Screen 1: Choose Account -->
+    <div id="chooser-screen" class="screen">
+      <div class="logo-container">
+        <!-- SVG Google Logo -->
+        <svg class="logo" viewBox="0 0 74 24" width="74" height="24" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#ea4335" d="M68.12 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z"/>
+          <path fill="#fbbc05" d="M59.28 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z"/>
+          <path fill="#4285f4" d="M50.15 11.58c-2.22 0-4.18 1.9-4.18 4.12 0 2.25 1.93 4.12 4.18 4.12 1.34 0 2.25-.54 2.76-1.12v.89c0 1.73-.93 2.66-2.42 2.66-1.22 0-1.98-.88-2.26-1.61l-1.99.83c.58 1.39 2.11 2.98 4.25 2.98 2.46 0 4.54-1.45 4.54-4.29V11.83h-1.89v.87c-.52-.57-1.43-1.12-2.99-1.12zm-.23 6.6c-1.25 0-2.22-1.06-2.22-2.5 0-1.45.97-2.48 2.22-2.48 1.22 0 2.19 1.03 2.19 2.48 0 1.43-.97 2.5-2.19 2.5z"/>
+          <path fill="#34a853" d="M43.07 1.05h1.96V23.4h-1.96z"/>
+          <path fill="#ea4335" d="M37.91 18.23c-1.07 0-2.02-.57-2.53-1.49l6.83-2.83-.24-.59c-.41-1.1-1.63-3.32-4.32-3.32-2.66 0-4.88 2.1-4.88 4.12 0 2.27 2.19 4.12 4.9 4.12 2.19 0 3.46-1.34 3.99-2.11l-1.63-1.09c-.54.79-1.27 1.31-2.12 1.31zm-.19-5.11c.85 0 1.57.44 1.8 1.07L35.08 16.03c0-1.66 1.18-2.91 2.64-2.91z"/>
+          <path fill="#4285f4" d="M10.15 12.02V9.93h9.61c.09.53.15 1.12.15 1.8 0 2.21-.6 4.94-2.57 6.91-1.93 1.99-4.4 3.09-7.2 3.09C4.54 21.73 0 16.85 0 10.87S4.54 0 10.15 0c3.12 0 5.37 1.22 7.03 2.8l-1.98 1.98c-1.2-1.12-2.76-1.98-5.05-1.98-4.04 0-7.27 3.29-7.27 7.35s3.23 7.35 7.27 7.35c2.59 0 4.07-1.05 5-2.04.77-.77 1.25-1.89 1.4-3.44H10.15z"/>
+        </svg>
+      </div>
+
+      <h1>Choose an account</h1>
+      <p class="subtitle">to continue to Ambition Tutorials</p>
+
+      <div class="account-list">
+        <!-- Account Item 1: Student -->
+        <div class="account-item" onclick="selectPredefined('Rahul Kumar', 'rahul@student.com')">
+          <div class="avatar" style="background-color: #8b5cf6;">R</div>
+          <div class="account-details">
+            <span class="account-name">Rahul Kumar</span>
+            <span class="account-email-text">rahul@student.com</span>
+          </div>
+        </div>
+        <!-- Account Item 2: Admin -->
+        <div class="account-item" onclick="selectPredefined('Ambition Admin', 'admin@ambition.com')">
+          <div class="avatar" style="background-color: #ef4444;">A</div>
+          <div class="account-details">
+            <span class="account-name">Ambition Admin</span>
+            <span class="account-email-text">admin@ambition.com</span>
+          </div>
+        </div>
+        <!-- Account Item 3: Parent -->
+        <div class="account-item" onclick="selectPredefined('Sunita Sharma', 'parent01@gmail.com')">
+          <div class="avatar" style="background-color: #10b981;">S</div>
+          <div class="account-details">
+            <span class="account-name">Sunita Sharma (Parent)</span>
+            <span class="account-email-text">parent01@gmail.com</span>
+          </div>
+        </div>
+        <!-- Account Item 4: Faculty -->
+        <div class="account-item" onclick="selectPredefined('Professor Gupta', 'faculty01@gmail.com')">
+          <div class="avatar" style="background-color: #f59e0b;">P</div>
+          <div class="account-details">
+            <span class="account-name">Professor Gupta</span>
+            <span class="account-email-text">faculty01@gmail.com</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="use-another-btn" onclick="showEmailInputScreen()">
+        <div class="use-another-avatar">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style="color: #1a73e8;">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+        </div>
+        <span>Use another account</span>
+      </div>
+    </div>
+
+    <!-- Screen 2: Use another account email input -->
+    <div id="email-screen" class="screen hidden">
+      <div class="logo-container">
+        <!-- SVG Google Logo -->
+        <svg class="logo" viewBox="0 0 74 24" width="74" height="24" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#ea4335" d="M68.12 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z"/>
+          <path fill="#fbbc05" d="M59.28 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z"/>
+          <path fill="#4285f4" d="M50.15 11.58c-2.22 0-4.18 1.9-4.18 4.12 0 2.25 1.93 4.12 4.18 4.12 1.34 0 2.25-.54 2.76-1.12v.89c0 1.73-.93 2.66-2.42 2.66-1.22 0-1.98-.88-2.26-1.61l-1.99.83c.58 1.39 2.11 2.98 4.25 2.98 2.46 0 4.54-1.45 4.54-4.29V11.83h-1.89v.87c-.52-.57-1.43-1.12-2.99-1.12zm-.23 6.6c-1.25 0-2.22-1.06-2.22-2.5 0-1.45.97-2.48 2.22-2.48 1.22 0 2.19 1.03 2.19 2.48 0 1.43-.97 2.5-2.19 2.5z"/>
+          <path fill="#34a853" d="M43.07 1.05h1.96V23.4h-1.96z"/>
+          <path fill="#ea4335" d="M37.91 18.23c-1.07 0-2.02-.57-2.53-1.49l6.83-2.83-.24-.59c-.41-1.1-1.63-3.32-4.32-3.32-2.66 0-4.88 2.1-4.88 4.12 0 2.27 2.19 4.12 4.9 4.12 2.19 0 3.46-1.34 3.99-2.11l-1.63-1.09c-.54.79-1.27 1.31-2.12 1.31zm-.19-5.11c.85 0 1.57.44 1.8 1.07L35.08 16.03c0-1.66 1.18-2.91 2.64-2.91z"/>
+          <path fill="#4285f4" d="M10.15 12.02V9.93h9.61c.09.53.15 1.12.15 1.8 0 2.21-.6 4.94-2.57 6.91-1.93 1.99-4.4 3.09-7.2 3.09C4.54 21.73 0 16.85 0 10.87S4.54 0 10.15 0c3.12 0 5.37 1.22 7.03 2.8l-1.98 1.98c-1.2-1.12-2.76-1.98-5.05-1.98-4.04 0-7.27 3.29-7.27 7.35s3.23 7.35 7.27 7.35c2.59 0 4.07-1.05 5-2.04.77-.77 1.25-1.89 1.4-3.44H10.15z"/>
+        </svg>
+      </div>
+
+      <h1>Sign in</h1>
+      <p class="subtitle">to continue to Ambition Tutorials</p>
+
+      <div class="input-group">
+        <input type="text" id="email-input" class="input-field" placeholder=" " autocomplete="email">
+        <label for="email-input" class="input-label">Email or phone</label>
+      </div>
+
+      <div id="email-error" class="error-text hidden">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+        </svg>
+        <span id="email-error-msg">Enter an email or phone number</span>
+      </div>
+
+      <div style="margin-top: 10px; margin-bottom: 24px; color: #1a73e8; font-weight: 500; cursor: pointer;">
+        Forgot email?
+      </div>
+
+      <div class="action-row">
+        <button type="button" class="text-link" onclick="showChooserScreen()">Back to list</button>
+        <button type="button" id="email-next-btn" class="btn-primary" onclick="handleEmailSubmit()">Next</button>
+      </div>
+    </div>
+
+    <!-- Screen 3: Consent Screen ("Continue as {Name}") -->
+    <div id="consent-screen" class="screen hidden">
+      <div class="logo-container">
+        <!-- SVG Google Logo -->
+        <svg class="logo" viewBox="0 0 74 24" width="74" height="24" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#ea4335" d="M68.12 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z"/>
+          <path fill="#fbbc05" d="M59.28 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z"/>
+          <path fill="#4285f4" d="M50.15 11.58c-2.22 0-4.18 1.9-4.18 4.12 0 2.25 1.93 4.12 4.18 4.12 1.34 0 2.25-.54 2.76-1.12v.89c0 1.73-.93 2.66-2.42 2.66-1.22 0-1.98-.88-2.26-1.61l-1.99.83c.58 1.39 2.11 2.98 4.25 2.98 2.46 0 4.54-1.45 4.54-4.29V11.83h-1.89v.87c-.52-.57-1.43-1.12-2.99-1.12zm-.23 6.6c-1.25 0-2.22-1.06-2.22-2.5 0-1.45.97-2.48 2.22-2.48 1.22 0 2.19 1.03 2.19 2.48 0 1.43-.97 2.5-2.19 2.5z"/>
+          <path fill="#34a853" d="M43.07 1.05h1.96V23.4h-1.96z"/>
+          <path fill="#ea4335" d="M37.91 18.23c-1.07 0-2.02-.57-2.53-1.49l6.83-2.83-.24-.59c-.41-1.1-1.63-3.32-4.32-3.32-2.66 0-4.88 2.1-4.88 4.12 0 2.27 2.19 4.12 4.9 4.12 2.19 0 3.46-1.34 3.99-2.11l-1.63-1.09c-.54.79-1.27 1.31-2.12 1.31zm-.19-5.11c.85 0 1.57.44 1.8 1.07L35.08 16.03c0-1.66 1.18-2.91 2.64-2.91z"/>
+          <path fill="#4285f4" d="M10.15 12.02V9.93h9.61c.09.53.15 1.12.15 1.8 0 2.21-.6 4.94-2.57 6.91-1.93 1.99-4.4 3.09-7.2 3.09C4.54 21.73 0 16.85 0 10.87S4.54 0 10.15 0c3.12 0 5.37 1.22 7.03 2.8l-1.98 1.98c-1.2-1.12-2.76-1.98-5.05-1.98-4.04 0-7.27 3.29-7.27 7.35s3.23 7.35 7.27 7.35c2.59 0 4.07-1.05 5-2.04.77-.77 1.25-1.89 1.4-3.44H10.15z"/>
+        </svg>
+      </div>
+
+      <div class="consent-card">
+        <div class="consent-avatar-big" id="consent-avatar">R</div>
+        <div class="consent-email-title" id="consent-name">Rahul Kumar</div>
+        <div class="consent-email-sub" id="consent-email">rahul@student.com</div>
+        
+        <p class="consent-disclaimer">
+          To continue, Google will share your name, email address, and profile picture with <strong>Ambition Tutorials</strong>. Review Ambition Tutorials's <a href="#" style="color: #1a73e8; text-decoration: none;">Privacy Policy</a> and <a href="#" style="color: #1a73e8; text-decoration: none;">Terms of Service</a>.
+        </p>
+      </div>
+
+      <div class="action-row">
+        <button type="button" class="btn-secondary" onclick="showChooserScreen()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="completeConsent()">Continue</button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div>English (United States)</div>
+      <div class="footer-links">
+        <a href="#" class="footer-link">Help</a>
+        <a href="#" class="footer-link">Privacy</a>
+        <a href="#" class="footer-link">Terms</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chooserScreen = document.getElementById('chooser-screen');
+    const emailScreen = document.getElementById('email-screen');
+    const consentScreen = document.getElementById('consent-screen');
+    const emailInput = document.getElementById('email-input');
+    const emailError = document.getElementById('email-error');
+    const emailErrorMsg = document.getElementById('email-error-msg');
+    
+    const consentAvatar = document.getElementById('consent-avatar');
+    const consentName = document.getElementById('consent-name');
+    const consentEmail = document.getElementById('consent-email');
+
+    let selectedEmail = '';
+    let selectedName = '';
+
+    // Step 1: Predefined Account Selection
+    function selectPredefined(name, email) {
+      selectedName = name;
+      selectedEmail = email;
+      
+      // Update Consent Screen Details
+      consentName.innerText = name;
+      consentEmail.innerText = email;
+      consentAvatar.innerText = name.charAt(0).toUpperCase();
+      
+      // Get a random color based on letter for the avatar
+      const colors = ['#8b5cf6', '#ef4444', '#10b981', '#f59e0b'];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      consentAvatar.style.backgroundColor = randomColor;
+
+      // Show Consent Screen
+      chooserScreen.classList.add('hidden');
+      emailScreen.classList.add('hidden');
+      consentScreen.classList.remove('hidden');
+    }
+
+    // Step 2: Use another email screen transitions
+    function showEmailInputScreen() {
+      chooserScreen.classList.add('hidden');
+      emailScreen.classList.remove('hidden');
+      consentScreen.classList.add('hidden');
+      emailInput.focus();
+    }
+
+    function showChooserScreen() {
+      chooserScreen.classList.remove('hidden');
+      emailScreen.classList.add('hidden');
+      consentScreen.classList.add('hidden');
+      emailInput.value = '';
+      emailInput.classList.remove('error');
+      emailError.classList.add('hidden');
+    }
+
+    // Custom Email Submit
+    function handleEmailSubmit() {
+      const emailVal = emailInput.value.trim();
+      emailInput.classList.remove('error');
+      emailError.classList.add('hidden');
+
+      if (!emailVal) {
+        emailInput.classList.add('error');
+        emailErrorMsg.innerText = 'Enter an email or phone number';
+        emailError.classList.remove('hidden');
+        return;
+      }
+
+      const isEmail = emailVal.includes('@');
+      if (isEmail && !/\S+@\S+\.\S+/.test(emailVal)) {
+        emailInput.classList.add('error');
+        emailErrorMsg.innerText = 'Enter a valid email address';
+        emailError.classList.remove('hidden');
+        return;
+      }
+
+      // Extract a mock name from email
+      const mockName = emailVal.split('@')[0].split(/[._-]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+      selectPredefined(mockName, emailVal);
+    }
+
+    // Listen to Enter key on Email input
+    emailInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleEmailSubmit();
+    });
+
+    // Step 3: Complete Consent Handshake
+    function completeConsent() {
+      if (window.opener) {
+        window.opener.postMessage({
+          type: 'GOOGLE_OAUTH_SUCCESS',
+          email: selectedEmail
+        }, '*');
+        window.close();
+      } else {
+        alert('Authentication success (parent window not detected): ' + selectedEmail);
+      }
+    }
+  </script>
+</body>
+</html>
