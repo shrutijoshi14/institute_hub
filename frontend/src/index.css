@@ -574,3 +574,167 @@ tr:hover td {
     gap: 0.75rem !important;
   }
 }
+
+/* Modern & Smooth Custom Scrollbars */
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.03);
+  border-radius: 100px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.35);
+  border-radius: 100px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.25s ease-in-out;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.75);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Firefox Support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.35) rgba(15, 23, 42, 0.03);
+}
+
+/* Premium Global Smooth Effects */
+button, .btn, a, .nav-item, input[type="submit"], input[type="button"], select, select option {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+button:active, .btn:active, .nav-item:active, input[type="submit"]:active, input[type="button"]:active {
+  transform: scale(0.96) !important;
+}
+
+@keyframes slideFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-pane {
+  animation: slideFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ==========================================
+   SAAS GLOBAL MODAL STYLING
+   ========================================== */
+.modal-overlay,
+.saas-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: rgba(15, 23, 42, 0.4) !important; /* Premium dark glass overlay */
+  backdrop-filter: blur(4px) !important; /* Micro-blur effect */
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 99999 !important;
+  padding: 1rem !important;
+}
+
+.modal-content,
+.saas-modal-content {
+  background-color: #ffffff !important;
+  border-radius: 16px !important;
+  width: calc(100% - 2rem) !important;
+  max-width: var(--modal-max-width, 520px) !important;
+  max-height: 90vh !important;
+  margin: 1.5rem auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important; /* Prevent double scrollbars */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  position: relative !important;
+  border: 1px solid var(--border-color, #E2E8F0) !important;
+  animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+.modal-lg {
+  --modal-max-width: 800px !important;
+}
+
+.modal-header,
+.saas-modal-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  border-bottom: 1px solid var(--border-color, #E2E8F0) !important;
+  padding: 1.25rem 1.5rem !important;
+  background-color: #ffffff !important;
+  z-index: 10 !important;
+  flex-shrink: 0 !important; /* Sticky Header */
+}
+
+.modal-body,
+.saas-modal-body {
+  padding: 1.5rem !important;
+  overflow-y: auto !important; /* Content-dependent scrollbar */
+  flex-grow: 1 !important;
+}
+
+.modal-footer,
+.saas-modal-footer {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 0.75rem !important;
+  border-top: 1px solid var(--border-color, #E2E8F0) !important;
+  padding: 1rem 1.5rem !important;
+  background-color: #F8FAFC !important; /* Distinct footer background */
+  z-index: 10 !important;
+  flex-shrink: 0 !important; /* Sticky Footer */
+  border-bottom-left-radius: 16px !important;
+  border-bottom-right-radius: 16px !important;
+}
+
+@keyframes modalFadeIn {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Support Center Grid Responsive Layout */
+.support-grid {
+  display: grid !important;
+  grid-template-columns: 340px 1fr !important;
+  gap: 2rem !important;
+  align-items: flex-start !important;
+}
+
+.support-grid > * {
+  min-width: 0 !important;
+}
+
+@media (max-width: 1150px) {
+  .support-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+}
+
+

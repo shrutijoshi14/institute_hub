@@ -62,6 +62,89 @@ if (useLiveDB && process.env.DATABASE_URL) {
     );
 }
 
+// Override define to inject tenant_id dynamically into multi-tenant models
+const originalDefine = sequelize.define;
+sequelize.define = function (modelName, attributes, options) {
+    const globalModels = ['Subscription', 'Institute', 'GlobalBoard', 'GlobalStandard', 'GlobalSubject', 'GlobalChapter', 'GlobalTopic', 'GlobalQuestion', 'GlobalSyllabusVersion', 'Announcement'];
+    if (!globalModels.includes(modelName) && !attributes.tenant_id) {
+        attributes.tenant_id = {
+            type: Sequelize.DataTypes.INTEGER,
+            allowNull: false
+        };
+    }
+    const transactionalModels = ['Attendance', 'Result', 'FeePayment', 'Assignment', 'Batch', 'Submission'];
+    if (transactionalModels.includes(modelName)) {
+        attributes.is_archived = {
+            type: Sequelize.DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false
+        };
+    }
+    return originalDefine.call(this, modelName, attributes, options);
+};
+
+// Import AsyncLocalStorage context for multi-tenancy query injection
+const tenantStorage = require('./tenantContext');
+
+const injectTenantScope = (options, tenantId) => {
+    if (!options) return;
+    const model = options.model;
+    if (model && model.rawAttributes) {
+        options.where = options.where || {};
+        if (model.rawAttributes.tenant_id && options.where.tenant_id === undefined) {
+            options.where.tenant_id = tenantId;
+        }
+        if (model.rawAttributes.is_archived && options.where.is_archived === undefined && !options.includeArchived) {
+            options.where.is_archived = 0;
+        }
+    }
+    if (options.include) {
+        if (!Array.isArray(options.include)) {
+            options.include = [options.include];
+        }
+        options.include = options.include.map(inc => {
+            let normalized = inc;
+            if (typeof inc === 'function' || (inc.prototype && inc.prototype instanceof Sequelize.Model)) {
+                normalized = { model: inc };
+            }
+            if (normalized.required === undefined) {
+                normalized.required = false;
+            }
+            injectTenantScope(normalized, tenantId);
+            return normalized;
+        });
+    }
+};
+
+// Add global hooks to automatically scope queries and creations by tenant_id
+sequelize.addHook('beforeFind', function(options) {
+    const context = tenantStorage.getStore();
+    if (options && !options.model) {
+        options.model = this;
+    }
+    if (context && context.tenantId && !options.bypassTenant) {
+        injectTenantScope(options, context.tenantId);
+    }
+});
+
+sequelize.addHook('beforeValidate', (instance) => {
+    const context = tenantStorage.getStore();
+    const tenantId = (context && context.tenantId) ? context.tenantId : 1;
+    if (instance.tenant_id === undefined || instance.tenant_id === null) {
+        instance.tenant_id = tenantId;
+    }
+});
+
+sequelize.addHook('beforeBulkCreate', (instances) => {
+    const context = tenantStorage.getStore();
+    const tenantId = (context && context.tenantId) ? context.tenantId : 1;
+    instances.forEach(instance => {
+        if (instance.tenant_id === undefined || instance.tenant_id === null) {
+            instance.tenant_id = tenantId;
+        }
+    });
+});
+
 const connectDB = async () => {
     try {
         await sequelize.authenticate();
@@ -75,6 +158,54 @@ const connectDB = async () => {
         const isMySQL = sequelize.getDialect() === 'mysql';
         
         if (isMySQL) {
+            // Safely drop outdated single-column unique keys if they exist in users table
+            try {
+                await sequelize.query('ALTER TABLE users DROP INDEX email_2');
+                console.log('Dropped outdated index email_2 from users table.');
+            } catch (err) {
+                // Ignore if it doesn't exist
+            }
+            try {
+                await sequelize.query('ALTER TABLE users DROP INDEX username_2');
+                console.log('Dropped outdated index username_2 from users table.');
+            } catch (err) {
+                // Ignore if it doesn't exist
+            }
+            try {
+                await sequelize.query('ALTER TABLE users DROP INDEX email');
+                console.log('Dropped outdated index email from users table.');
+            } catch (err) {
+                // Ignore if it doesn't exist
+            }
+            try {
+                await sequelize.query('ALTER TABLE users DROP INDEX username');
+                console.log('Dropped outdated index username from users table.');
+            } catch (err) {
+                // Ignore if it doesn't exist
+            }
+
+            // Safely add missing columns to institutes table if they are missing
+            try {
+                await sequelize.query('ALTER TABLE institutes ADD COLUMN code VARCHAR(255) NULL');
+            } catch (err) {
+                // Ignore if it already exists
+            }
+            try {
+                await sequelize.query('ALTER TABLE institutes ADD COLUMN domain VARCHAR(255) NULL');
+            } catch (err) {
+                // Ignore if it already exists
+            }
+            try {
+                await sequelize.query('ALTER TABLE institutes ADD COLUMN plan VARCHAR(255) NULL');
+            } catch (err) {
+                // Ignore if it already exists
+            }
+            try {
+                await sequelize.query('ALTER TABLE institutes ADD COLUMN expiry_date DATE NULL');
+            } catch (err) {
+                // Ignore if it already exists
+            }
+
             // Safely alter ENUM column in case of existing schemas
             try {
                 await sequelize.query(`
@@ -164,6 +295,15 @@ const connectDB = async () => {
             await addColumnSafely('users', 'biometric_credential_id', "TEXT DEFAULT NULL");
             await addColumnSafely('users', 'biometric_public_key', "TEXT DEFAULT NULL");
             await addColumnSafely('users', 'biometric_sign_count', "INT DEFAULT 0");
+            await addColumnSafely('users', 'login_attempts', "INT DEFAULT 0");
+            await addColumnSafely('users', 'lockout_until', "DATETIME DEFAULT NULL");
+            await addColumnSafely('users', 'last_login_at', "DATETIME DEFAULT NULL");
+            await addColumnSafely('users', 'last_login_ip', "VARCHAR(255) DEFAULT NULL");
+            await addColumnSafely('users', 'must_change_password', "TINYINT(1) DEFAULT 0");
+            await addColumnSafely('subscriptions', 'max_parents', "INT DEFAULT -1");
+            await addColumnSafely('subscriptions', 'max_faculty', "INT DEFAULT -1");
+            await addColumnSafely('subscriptions', 'max_storage_gb', "INT DEFAULT -1");
+            await addColumnSafely('subscriptions', 'duration_months', "INT DEFAULT 12");
 
         } else if (isPostgres) {
             console.log('PostgreSQL/Supabase detected. Skipping MySQL-specific ALTER TABLE queries. Checking and adding any missing columns...');
@@ -191,9 +331,178 @@ const connectDB = async () => {
             await addColumnPgSafely('users', 'biometric_credential_id', "TEXT DEFAULT NULL");
             await addColumnPgSafely('users', 'biometric_public_key', "TEXT DEFAULT NULL");
             await addColumnPgSafely('users', 'biometric_sign_count', "INTEGER DEFAULT 0");
+            await addColumnPgSafely('users', 'login_attempts', "INTEGER DEFAULT 0");
+            await addColumnPgSafely('users', 'lockout_until', "TIMESTAMP DEFAULT NULL");
+            await addColumnPgSafely('users', 'last_login_at', "TIMESTAMP DEFAULT NULL");
+            await addColumnPgSafely('users', 'last_login_ip', "VARCHAR(255) DEFAULT NULL");
+            await addColumnPgSafely('users', 'last_login_agent', "VARCHAR(255) DEFAULT NULL");
+            await addColumnPgSafely('users', 'must_change_password', "BOOLEAN DEFAULT FALSE");
+            await addColumnPgSafely('subscriptions', 'max_parents', "INTEGER DEFAULT -1");
+            await addColumnPgSafely('subscriptions', 'max_faculty', "INTEGER DEFAULT -1");
+            await addColumnPgSafely('subscriptions', 'max_storage_gb', "INTEGER DEFAULT -1");
+            await addColumnPgSafely('subscriptions', 'duration_months', "INTEGER DEFAULT 12");
         }
 
         console.log('Database synced successfully.');
+
+        // Auto-seed subscriptions if count is 0
+        try {
+            const Subscription = require('../models/Subscription');
+            const subCount = await Subscription.count();
+            if (subCount === 0) {
+                console.log('Seeding default subscription plans (Free Trial, Basic, Standard, Premium, Enterprise)...');
+                await Subscription.bulkCreate([
+                    {
+                        id: 1,
+                        name: 'Free Trial',
+                        price: 0.00,
+                        billing_cycle: 'monthly',
+                        max_students: 15,
+                        max_parents: 15,
+                        max_faculty: 3,
+                        max_storage_gb: 1,
+                        features: 'lms_enabled,library_enabled',
+                        duration_months: 1
+                    },
+                    {
+                        id: 2,
+                        name: 'Basic',
+                        price: 15000.00,
+                        billing_cycle: 'yearly',
+                        max_students: 150,
+                        max_parents: 150,
+                        max_faculty: 10,
+                        max_storage_gb: 5,
+                        features: 'lms_enabled,library_enabled',
+                        duration_months: 12
+                    },
+                    {
+                        id: 3,
+                        name: 'Standard',
+                        price: 35000.00,
+                        billing_cycle: 'yearly',
+                        max_students: 600,
+                        max_parents: 600,
+                        max_faculty: 30,
+                        max_storage_gb: 20,
+                        features: 'lms_enabled,library_enabled,transport_enabled',
+                        duration_months: 12
+                    },
+                    {
+                        id: 4,
+                        name: 'Premium',
+                        price: 75000.00,
+                        billing_cycle: 'yearly',
+                        max_students: 2500,
+                        max_parents: 2500,
+                        max_faculty: 120,
+                        max_storage_gb: 100,
+                        features: 'lms_enabled,library_enabled,transport_enabled,biometrics_enabled',
+                        duration_months: 12
+                    },
+                    {
+                        id: 5,
+                        name: 'Enterprise',
+                        price: 180000.00,
+                        billing_cycle: 'yearly',
+                        max_students: -1,
+                        max_parents: -1,
+                        max_faculty: -1,
+                        max_storage_gb: 500,
+                        features: 'lms_enabled,library_enabled,transport_enabled,biometrics_enabled',
+                        duration_months: 12
+                    }
+                ], { bypassTenant: true });
+                console.log('Seeded default subscription plans successfully.');
+            }
+        } catch (subSeedErr) {
+            console.error('Failed to seed default subscription plans:', subSeedErr.message);
+        }
+
+        // Auto-seed global syllabus if boards count is 0
+        try {
+            const GlobalBoard = require('../models/GlobalBoard');
+            const boardCount = await GlobalBoard.count();
+            if (boardCount === 0) {
+                console.log('Seeding default global syllabus details (CBSE Class 10 Math)...');
+                
+                const GlobalStandard = require('../models/GlobalStandard');
+                const GlobalSubject = require('../models/GlobalSubject');
+                const GlobalChapter = require('../models/GlobalChapter');
+                const GlobalTopic = require('../models/GlobalTopic');
+                const GlobalQuestion = require('../models/GlobalQuestion');
+                const GlobalSyllabusVersion = require('../models/GlobalSyllabusVersion');
+
+                // 1. Seed CBSE Board
+                const cbse = await GlobalBoard.create({
+                    name: 'Central Board of Secondary Education',
+                    code: 'CBSE'
+                }, { bypassTenant: true });
+
+                // 2. Seed Class 10
+                const class10 = await GlobalStandard.create({
+                    board_id: cbse.id,
+                    name: 'Class 10'
+                }, { bypassTenant: true });
+
+                // 3. Seed Mathematics
+                const math = await GlobalSubject.create({
+                    standard_id: class10.id,
+                    name: 'Mathematics',
+                    code: 'MATH-041'
+                }, { bypassTenant: true });
+
+                // 4. Seed Chapters
+                const cap1 = await GlobalChapter.create({
+                    subject_id: math.id,
+                    name: 'Real Numbers',
+                    chapter_number: 1
+                }, { bypassTenant: true });
+
+                const cap2 = await GlobalChapter.create({
+                    subject_id: math.id,
+                    name: 'Polynomials',
+                    chapter_number: 2
+                }, { bypassTenant: true });
+
+                // 5. Seed Topics
+                const topic1 = await GlobalTopic.create({
+                    chapter_id: cap1.id,
+                    name: 'Fundamental Theorem of Arithmetic',
+                    teaching_hours: 4.5,
+                    learning_outcomes: 'Students will learn to find HCF and LCM of positive integers using prime factorization, and prove irrationality of numbers.'
+                }, { bypassTenant: true });
+
+                const topic2 = await GlobalTopic.create({
+                    chapter_id: cap2.id,
+                    name: 'Relationship between Zeroes and Coefficients of a Polynomial',
+                    teaching_hours: 6.0,
+                    learning_outcomes: 'Understand zeroes of a quadratic polynomial and verify relationship with coefficients.'
+                }, { bypassTenant: true });
+
+                // 6. Seed Question Bank
+                await GlobalQuestion.create({
+                    topic_id: topic1.id,
+                    question_text: 'Find the HCF and LCM of 6 and 20 by the prime factorisation method.',
+                    question_type: 'Short',
+                    difficulty: 'Easy',
+                    answer_key: 'HCF(6, 20) = 2. LCM(6, 20) = 60.'
+                }, { bypassTenant: true });
+
+                // 7. Seed Version Control
+                await GlobalSyllabusVersion.create({
+                    board_id: cbse.id,
+                    version: 'v2026.1',
+                    changes_summary: 'Standardized math teaching hours, updated learning outcomes block, added HCF/LCM question banks.',
+                    status: 'Active',
+                    effective_date: '2026-04-01'
+                }, { bypassTenant: true });
+
+                console.log('Seeded global syllabus successfully.');
+            }
+        } catch (sylSeedErr) {
+            console.error('Failed to seed global syllabus:', sylSeedErr.message);
+        }
 
         // Backfill missing Registrations (logic sync)
         try {
@@ -320,6 +629,10 @@ const connectDB = async () => {
                     const sPassword = reg.password || 'studentpass123';
                     const pPassword = `Parent@${sUsername.slice(7) || '01'}`;
 
+                    const Student = require('../models/Student');
+                    const Parent = require('../models/Parent');
+                    const StudentParentMap = require('../models/StudentParentMap');
+
                     // Create Student User
                     const newStudent = await User.create({
                         name: reg.name,
@@ -328,23 +641,39 @@ const connectDB = async () => {
                         role: 'student',
                         phone: reg.phone,
                         username: sUsername,
-                        standard: reg.class || '9th',
-                        parent_name: reg.name + ' Parent',
-                        parent_phone: reg.phone,
-                        address: 'Restored from registration backup',
                         status: 'active'
                     });
 
+                    // Create Student Profile extension
+                    await Student.create({
+                        user_id: newStudent.id,
+                        standard: reg.class || '9th'
+                    });
+
                     // Create Parent User
-                    await User.create({
+                    const newParent = await User.create({
                         name: reg.name + ' Parent',
                         email: `parent_${newStudent.id}@${getDomain()}`,
                         password: pPassword,
                         role: 'parent',
                         phone: reg.phone,
-                        parent_id: newStudent.id,
                         username: pUsername,
                         status: 'active'
+                    });
+
+                    // Create Parent Profile extension
+                    await Parent.create({
+                        user_id: newParent.id,
+                        address: 'Restored from registration backup'
+                    });
+
+                    // Create student parent mapping
+                    await StudentParentMap.create({
+                        student_id: newStudent.id,
+                        parent_id: newParent.id,
+                        relation_type: 'guardian',
+                        is_billing_contact: true,
+                        is_emergency_contact: true
                     });
 
                     // Rebuild Enrollment

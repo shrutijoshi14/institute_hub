@@ -103,22 +103,37 @@ router.put('/:id', async (req, res) => {
             await studentUser.update({
                 name,
                 email,
-                phone,
-                standard: class_range,
-                parent_name,
-                parent_phone,
-                address,
-                dob: dob || null,
-                blood_group
+                phone
             });
 
+            const Student = require('../models/Student');
+            let studentProfile = await Student.findOne({ where: { user_id: studentUser.id } });
+            if (studentProfile) {
+                await studentProfile.update({
+                    standard: class_range,
+                    dob: dob || null,
+                    blood_group
+                });
+            } else {
+                await Student.create({
+                    user_id: studentUser.id,
+                    standard: class_range,
+                    dob: dob || null,
+                    blood_group
+                });
+            }
+
             // Update parent user account
-            const parentUser = await User.findOne({ where: { parent_id: studentUser.id, role: 'parent' } });
-            if (parentUser) {
-                const parentUpdate = {};
-                if (parent_name) parentUpdate.name = parent_name;
-                if (parent_phone) parentUpdate.phone = parent_phone;
-                await parentUser.update(parentUpdate);
+            const StudentParentMap = require('../models/StudentParentMap');
+            const parentMapping = await StudentParentMap.findOne({ where: { student_id: studentUser.id } });
+            if (parentMapping) {
+                const parentUser = await User.findByPk(parentMapping.parent_id);
+                if (parentUser) {
+                    const parentUpdate = {};
+                    if (parent_name) parentUpdate.name = parent_name;
+                    if (parent_phone) parentUpdate.phone = parent_phone;
+                    await parentUser.update(parentUpdate);
+                }
             }
         }
 
@@ -159,6 +174,13 @@ router.post('/convert/:id', async (req, res) => {
         const { password, batch_id, fee_plan, standard, board } = req.body;
         if (!password || !batch_id) return res.status(400).json({ msg: 'Password and Batch are required for conversion.' });
 
+        const validatePasswordStrength = (pass) => {
+            return pass.length >= 8 && /[A-Z]/.test(pass) && /[a-z]/.test(pass) && /[0-9]/.test(pass) && /[^A-Za-z0-9]/.test(pass);
+        };
+        if (!validatePasswordStrength(password)) {
+            return res.status(400).json({ msg: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character.' });
+        }
+
         // Logic similar to registration but from enquiry data
         const User = require('../models/User');
         const Enrollment = require('../models/Enrollment');
@@ -174,7 +196,13 @@ router.post('/convert/:id', async (req, res) => {
         let autoStudentCreds, autoParentCreds;
         if (existingStudent) {
             newUser = existingStudent;
-            await newUser.update({ standard: standard || existingStudent.standard });
+            const Student = require('../models/Student');
+            let studentProfile = await Student.findOne({ where: { user_id: newUser.id } });
+            if (studentProfile) {
+                await studentProfile.update({ standard: standard || existingStudent.standard });
+            } else {
+                await Student.create({ user_id: newUser.id, standard: standard || existingStudent.standard });
+            }
         } else {
             autoStudentCreds = await generateCredentials('student');
 
@@ -185,29 +213,45 @@ router.post('/convert/:id', async (req, res) => {
                 role: 'student',
                 phone: enquiry.phone,
                 username: autoStudentCreds.username,
-                standard: standard || enquiry.class_range,
-                parent_name: parent_name || '',
-                parent_phone: parent_phone || enquiry.phone,
-                address: address || '',
-                dob: dob || null,
-                blood_group: blood_group || '',
                 status: 'active'
+            });
+
+            const Student = require('../models/Student');
+            const Parent = require('../models/Parent');
+            const StudentParentMap = require('../models/StudentParentMap');
+
+            await Student.create({
+                user_id: newUser.id,
+                standard: standard || enquiry.class_range,
+                dob: dob || null,
+                blood_group: blood_group || ''
             });
 
             autoParentCreds = await generateCredentials('parent');
 
             // Automatically create Parent User for this student
-            await User.create({
+            const newParent = await User.create({
                 name: parent_name || `${enquiry.name} Parent`,
                 email: `parent_${newUser.id}@${getDomain()}`,
                 password: autoParentCreds.password,
                 role: 'parent',
                 phone: parent_phone || enquiry.phone,
-                parent_id: newUser.id,
                 username: autoParentCreds.username,
                 status: 'active'
             });
 
+            await Parent.create({
+                user_id: newParent.id,
+                address: address || ''
+            });
+
+            await StudentParentMap.create({
+                student_id: newUser.id,
+                parent_id: newParent.id,
+                relation_type: 'guardian',
+                is_billing_contact: true,
+                is_emergency_contact: true
+            });
             console.log(`✅ Student Login: ${autoStudentCreds.username} / ${password || autoStudentCreds.password}`);
             console.log(`✅ Parent Login:  ${autoParentCreds.username} / ${autoParentCreds.password}`);
         }
@@ -320,7 +364,18 @@ router.delete('/:id', async (req, res) => {
                 const Certificate = require('../models/Certificate');
                 const Registration = require('../models/Registration');
 
-                await User.destroy({ where: { parent_id: studentUser.id, role: 'parent' } });
+                const StudentParentMap = require('../models/StudentParentMap');
+                const Parent = require('../models/Parent');
+                const Student = require('../models/Student');
+                const mappings = await StudentParentMap.findAll({ where: { student_id: studentUser.id } });
+                const parentIds = mappings.map(m => m.parent_id);
+                if (parentIds.length > 0) {
+                    await User.destroy({ where: { id: parentIds, role: 'parent' } });
+                    await Parent.destroy({ where: { user_id: parentIds } });
+                }
+                await StudentParentMap.destroy({ where: { student_id: studentUser.id } });
+                await Student.destroy({ where: { user_id: studentUser.id } });
+
                 await Enrollment.destroy({ where: { student_id: studentUser.id } });
                 await FeePayment.destroy({ where: { student_id: studentUser.id } });
                 await Attendance.destroy({ where: { student_id: studentUser.id } });

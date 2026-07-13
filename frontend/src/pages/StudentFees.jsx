@@ -41,6 +41,7 @@ const StudentFees = () => {
   const [cardOtpInput, setCardOtpInput] = useState('');
   const [cardOtpError, setCardOtpError] = useState('');
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
   
   const { user, role } = useAuth();
   
@@ -106,6 +107,7 @@ const StudentFees = () => {
         setShowPayModal(false);
         setGpayOverlay(false);
         setShowCardOtpModal(false);
+        setSelectedReceipt(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -746,7 +748,7 @@ const StudentFees = () => {
                 <th style={{ padding: '1rem 1.5rem' }}>Amount</th>
                 <th style={{ padding: '1rem 1.5rem' }}>Method</th>
                 <th style={{ padding: '1rem 1.5rem' }}>Status</th>
-                <th style={{ padding: '1rem 1.5rem' }}>Receipt</th>
+                <th style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -758,10 +760,46 @@ const StudentFees = () => {
                   <td style={{ padding: '1rem 1.5rem' }}>
                     <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: '#DCFCE7', color: '#166534', borderRadius: '4px', fontWeight: 600 }}>Cleared</span>
                   </td>
-                  <td style={{ padding: '1rem 1.5rem' }}>
-                    <button onClick={() => generatePDF(pay)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      <Printer size={16} />
-                    </button>
+                  <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <button 
+                        onClick={() => setSelectedReceipt(pay)} 
+                        className="btn" 
+                        style={{ 
+                          padding: '0.35rem 0.65rem', 
+                          fontSize: '0.75rem', 
+                          backgroundColor: '#F1F5F9', 
+                          color: '#475569', 
+                          minWidth: 'auto',
+                          borderRadius: '6px',
+                          fontWeight: 600,
+                          border: '1px solid #E2E8F0',
+                          cursor: 'pointer'
+                        }}
+                        title="View Receipt Details"
+                      >
+                        View
+                      </button>
+                      <button 
+                        onClick={() => generatePDF(pay)} 
+                        className="btn btn-primary" 
+                        style={{ 
+                          padding: '0.35rem 0.65rem', 
+                          fontSize: '0.75rem', 
+                          minWidth: 'auto',
+                          borderRadius: '6px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                        title="Download Receipt PDF"
+                      >
+                        <Download size={12} />
+                        <span>Download</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )) : (
@@ -1527,6 +1565,130 @@ const StudentFees = () => {
                    >
                      Cancel Transaction
                    </button>
+                </div>
+              </div>
+            )}
+
+            {/* Receipt Viewer Modal */}
+            {selectedReceipt && (
+              <div className="modal-overlay" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100 }}>
+                <div className="modal-content" style={{ maxWidth: '600px', width: '100%', borderRadius: '16px', overflow: 'hidden' }}>
+                  <div className="modal-header" style={{ borderBottom: '1px solid #E2E8F0', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#1E293B' }}>Fee Receipt</h2>
+                    <button 
+                      onClick={() => setSelectedReceipt(null)} 
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}
+                    >
+                      <X size={24} />
+                    </button>
+                  </div>
+                  
+                  <div className="modal-body" style={{ padding: '1.5rem', maxHeight: '70vh', overflowY: 'auto' }}>
+                    {/* Receipt Content Card */}
+                    <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', backgroundColor: '#F8FAFC' }}>
+                      
+                      {/* Branding & Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#4F46E5', fontWeight: 800 }}>{settings.schoolName || 'Institute Hub'}</h3>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: '#64748B' }}>{settings.contactEmail || 'support@institute.com'}</p>
+                          <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#64748B' }}>{settings.contactPhone || '+91 98765 43210'}</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 700, backgroundColor: '#E0E7FF', color: '#4F46E5', padding: '3px 8px', borderRadius: '9999px', textTransform: 'uppercase' }}>
+                            {selectedReceipt.payment_mode || 'Cash'}
+                          </span>
+                          <p style={{ margin: '8px 0 0 0', fontSize: '0.75rem', color: '#64748B' }}>
+                            <strong>Receipt ID:</strong> REC-{selectedReceipt.id}
+                          </p>
+                          <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#64748B' }}>
+                            <strong>Date:</strong> {new Date(selectedReceipt.payment_date).toLocaleDateString('en-GB')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <hr style={{ border: 'none', borderTop: '1px solid #E2E8F0', margin: '1rem 0' }} />
+
+                      {/* Billed To / Student Information */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+                        <div>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94A3B8', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Student Details</span>
+                          <h4 style={{ margin: '4px 0 0 0', fontSize: '0.95rem', color: '#0F172A' }}>{user?.name}</h4>
+                          <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#475569' }}>Course: {feeSummary?.courseTitle || 'N/A'}</p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94A3B8', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Status</span>
+                          <h4 style={{ margin: '4px 0 0 0', fontSize: '0.95rem', color: '#166534' }}>Cleared / Paid</h4>
+                        </div>
+                      </div>
+
+                      {/* Items Table */}
+                      <div style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#FFFFFF', marginBottom: '1.5rem' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#F1F5F9', borderBottom: '1px solid #E2E8F0', color: '#475569', fontWeight: 600, textAlign: 'left' }}>
+                              <th style={{ padding: '8px 12px' }}>Description</th>
+                              <th style={{ padding: '8px 12px', textAlign: 'right' }}>Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                              <td style={{ padding: '10px 12px' }}>
+                                <div><strong>Tuition Fee Installment Payment</strong></div>
+                                <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>Receipt against standard tuition fee allocation.</div>
+                              </td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#0F172A' }}>
+                                ₹{parseFloat(selectedReceipt.amount_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', color: '#64748B' }}>Subtotal:</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>
+                                ₹{(parseFloat(selectedReceipt.amount_paid) / 1.18).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', color: '#64748B' }}>GST (18% Inclusive):</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>
+                                ₹{(parseFloat(selectedReceipt.amount_paid) - (parseFloat(selectedReceipt.amount_paid) / 1.18)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                            <tr style={{ backgroundColor: '#EEF2FF', fontWeight: 700, borderTop: '2px solid #E2E8F0' }}>
+                              <td style={{ padding: '10px 12px', color: '#4F46E5' }}>Total Paid:</td>
+                              <td style={{ padding: '10px 12px', textAlign: 'right', color: '#4F46E5', fontSize: '0.9rem' }}>
+                                ₹{parseFloat(selectedReceipt.amount_paid).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Amount in words */}
+                      <div style={{ fontSize: '0.75rem', color: '#64748B', fontStyle: 'italic', marginBottom: '0.5rem' }}>
+                        <strong>Amount in Words:</strong> {numberToWords(parseFloat(selectedReceipt.amount_paid))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer" style={{ borderTop: '1px solid #E2E8F0', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', backgroundColor: '#F8FAFC' }}>
+                    <button 
+                      onClick={() => setSelectedReceipt(null)} 
+                      className="btn" 
+                      style={{ backgroundColor: '#E2E8F0', color: '#475569', cursor: 'pointer', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px' }}
+                    >
+                      Close
+                    </button>
+                    <button 
+                      onClick={() => {
+                        generatePDF(selectedReceipt);
+                        setSelectedReceipt(null);
+                      }} 
+                      className="btn btn-primary"
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', backgroundColor: '#4F46E5', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px' }}
+                    >
+                      <Download size={14} /> Download PDF
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

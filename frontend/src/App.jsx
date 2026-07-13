@@ -28,6 +28,9 @@ import UserManagement from './pages/UserManagement';
 import Settings from './pages/Settings';
 import PublicEnquiry from './pages/PublicEnquiry';
 import FacultyDailyTracker from './pages/FacultyDailyTracker';
+import AcademicPromotion from './pages/AcademicPromotion';
+import ArchiveSystem from './pages/ArchiveSystem';
+import StorageManager from './pages/StorageManager';
 
 // New Role Dashboards
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
@@ -39,11 +42,19 @@ import TransportDashboard from './pages/TransportDashboard';
 // Authentication
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
+import SuperAdminLogin from './pages/Auth/SuperAdminLogin';
+import SupportCenter from './pages/SupportCenter';
+
+import ForceChangePassword from './pages/Auth/ForceChangePassword';
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const search = window.location.search;
+    return <Navigate to={`/login${search}`} replace />;
+  }
+  if (user.mustChangePassword) {
+    return <ForceChangePassword />;
   }
   return children;
 };
@@ -63,12 +74,74 @@ const DashboardRouter = () => {
 };
 
 function App() {
+  React.useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Find open modal overlay by checking standard overlay classes or fixed containers
+      const modalOverlay = document.querySelector('.modal-overlay, .saas-modal-overlay, [style*="position: fixed"][style*="rgba(0, 0, 0"]');
+      if (!modalOverlay) return;
+
+      const modalContent = modalOverlay.querySelector('.modal-content, .card, [style*="backgroundColor: white"], [style*="background-color: white"]');
+      if (!modalContent) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        // Find close/cancel/done buttons and trigger click
+        const closeBtn = modalContent.querySelector('.modal-header button, .saas-modal-header button, button.close');
+        const cancelBtn = Array.from(modalContent.querySelectorAll('button')).find(btn => {
+          const text = btn.textContent.trim().toLowerCase();
+          return text === '×' || text === 'x' || text.includes('close') || text.includes('cancel') || text.includes('done');
+        });
+        const finalCloseBtn = closeBtn || cancelBtn;
+        if (finalCloseBtn) {
+          finalCloseBtn.click();
+        }
+      } else if (e.key === 'Enter') {
+        // Do not intercept Enter if typing inside textareas or editable layers
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.getAttribute('contenteditable') === 'true')) {
+          return;
+        }
+
+        // Find primary action buttons (Save, Add, Create, Submit, Confirm, Access, Done, Run, Impersonate)
+        const actionBtn = Array.from(modalContent.querySelectorAll('button, input[type="submit"]')).find(btn => {
+          const text = btn.textContent.trim().toLowerCase();
+          if (text.includes('cancel') || text.includes('close') || text === '×' || text === 'x') {
+            return false;
+          }
+          return (
+            text.includes('save') || 
+            text.includes('add') || 
+            text.includes('create') || 
+            text.includes('submit') || 
+            text.includes('confirm') || 
+            text.includes('access') || 
+            text.includes('done') || 
+            text.includes('clone') || 
+            text.includes('promote') || 
+            text.includes('run') ||
+            text.includes('impersonate') ||
+            btn.type === 'submit'
+          );
+        });
+
+        if (actionBtn) {
+          e.preventDefault();
+          actionBtn.click();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/super-admin/login" element={<SuperAdminLogin />} />
           <Route path="/enquiry" element={<PublicEnquiry />} />
           
           {/* Secured Application Shell */}
@@ -86,11 +159,15 @@ function App() {
             <Route path="syllabus" element={<Syllabus />} />
             <Route path="admin/fees" element={<AdminFees />} />
             <Route path="admin/reports" element={<AdminReports />} />
+            <Route path="admin/promotions" element={<AcademicPromotion />} />
+            <Route path="admin/archive" element={<ArchiveSystem />} />
+            <Route path="admin/storage" element={<StorageManager />} />
             
             {/* Global Features (Data naturally isolated inside views) */}
             <Route path="notices" element={<Notices />} />
             <Route path="assignments" element={<Assignments />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="support" element={<SupportCenter />} />
 
             {/* Role Specific Views */}
             <Route path="student/fees" element={<StudentFees />} />

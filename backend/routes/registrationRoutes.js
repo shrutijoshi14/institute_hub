@@ -38,6 +38,15 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ msg: 'Please provide all required fields: name, phone, class, board, and course interest.' });
         }
 
+        if (password) {
+            const validatePasswordStrength = (pass) => {
+                return pass.length >= 8 && /[A-Z]/.test(pass) && /[a-z]/.test(pass) && /[0-9]/.test(pass) && /[^A-Za-z0-9]/.test(pass);
+            };
+            if (!validatePasswordStrength(password)) {
+                return res.status(400).json({ msg: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character.' });
+            }
+        }
+
         // Check if user already exists
         const existingUser = await User.findOne({ where: { email : email || 'no-email' } });
         if (existingUser && email) {
@@ -64,13 +73,28 @@ router.post('/', async (req, res) => {
             role: 'student',
             phone,
             username: resolvedUsername,
-            standard: className,
-            parent_name,
-            parent_phone,
-            address,
-            dob: dob || null,
-            blood_group,
             status: 'pending'
+        });
+
+        // Log Student Creation
+        const AuditLog = require('../models/AuditLog');
+        await AuditLog.create({
+            user_id: newUser.id,
+            action: 'CREATE_USER',
+            table_name: 'users',
+            record_id: newUser.id,
+            details: `Created Student user ${newUser.username} (${newUser.name})`
+        });
+
+        const Student = require('../models/Student');
+        const Parent = require('../models/Parent');
+        const StudentParentMap = require('../models/StudentParentMap');
+
+        await Student.create({
+            user_id: newUser.id,
+            standard: className,
+            dob: dob || null,
+            blood_group
         });
 
         // Automatically create Parent User for this student
@@ -80,9 +104,30 @@ router.post('/', async (req, res) => {
             password: resolvedParentPassword,
             role: 'parent',
             phone: parent_phone || phone,
-            parent_id: newUser.id,
             username: resolvedParentUsername,
             status: 'pending'
+        });
+
+        // Log Parent Creation
+        await AuditLog.create({
+            user_id: parentUser.id,
+            action: 'CREATE_USER',
+            table_name: 'users',
+            record_id: parentUser.id,
+            details: `Created Parent user ${parentUser.username} (${parentUser.name}) for student ${newUser.username}`
+        });
+
+        await Parent.create({
+            user_id: parentUser.id,
+            address
+        });
+
+        await StudentParentMap.create({
+            student_id: newUser.id,
+            parent_id: parentUser.id,
+            relation_type: 'guardian',
+            is_billing_contact: true,
+            is_emergency_contact: true
         });
 
         console.log(`✅ Student Login: ${resolvedUsername} / ${password || studentCreds.password}`);
@@ -134,12 +179,19 @@ router.post('/', async (req, res) => {
             });
         }
 
+        const parentMapping = await StudentParentMap.findOne({ where: { student_id: newUser.id } });
+        let resolvedPUsername = 'parent';
+        if (parentMapping) {
+            const pUser = await User.findOne({ where: { id: parentMapping.parent_id, role: 'parent' } });
+            if (pUser) resolvedPUsername = pUser.username;
+        }
+
         res.status(201).json({ 
             msg: 'Registration successful. Awaiting admin approval.',
             data: newRegistration,
             credentials: {
                 student: { username: (await User.findOne({ where: { id: newUser.id } })).username, note: 'Password as entered or auto-generated' },
-                parent: { username: (await User.findOne({ where: { parent_id: newUser.id, role: 'parent' } })).username, note: 'Auto-generated' }
+                parent: { username: resolvedPUsername, note: 'Auto-generated' }
             }
         });
     } catch (err) {
@@ -148,9 +200,11 @@ router.post('/', async (req, res) => {
     }
 });
 
+const { checkSubscriptionLimits } = require('../middleware/subscriptionMiddleware');
+
 // @route   PUT /api/registration/:id
 // @desc    Update registration status
-router.put('/:id', async (req, res) => {
+router.put('/:id', checkSubscriptionLimits, async (req, res) => {
     try {
         const { status } = req.body;
         const registration = await Registration.findByPk(req.params.id);
@@ -176,14 +230,10 @@ router.put('/:id', async (req, res) => {
             await studentUser.update({ status: userStatus });
             
             // Update parent status too
-            const parentUser = await User.findOne({
-                where: {
-                    role: 'parent',
-                    parent_id: studentUser.id
-                }
-            });
-            if (parentUser) {
-                await parentUser.update({ status: userStatus });
+            const StudentParentMap = require('../models/StudentParentMap');
+            const parentMapping = await StudentParentMap.findOne({ where: { student_id: studentUser.id } });
+            if (parentMapping) {
+                await User.update({ status: userStatus }, { where: { id: parentMapping.parent_id, role: 'parent' } });
             }
         }
         
@@ -225,8 +275,19 @@ router.delete('/:id', async (req, res) => {
                 const TransportAssignment = require('../models/TransportAssignment');
                 const Certificate = require('../models/Certificate');
                 const Enquiry = require('../models/Enquiry');
+                const StudentParentMap = require('../models/StudentParentMap');
+                const Parent = require('../models/Parent');
+                const Student = require('../models/Student');
 
-                await User.destroy({ where: { parent_id: studentUser.id, role: 'parent' } });
+                const mappings = await StudentParentMap.findAll({ where: { student_id: studentUser.id } });
+                const parentIds = mappings.map(m => m.parent_id);
+                if (parentIds.length > 0) {
+                    await User.destroy({ where: { id: parentIds, role: 'parent' } });
+                    await Parent.destroy({ where: { user_id: parentIds } });
+                }
+                await StudentParentMap.destroy({ where: { student_id: studentUser.id } });
+                await Student.destroy({ where: { user_id: studentUser.id } });
+
                 await Enrollment.destroy({ where: { student_id: studentUser.id } });
                 await FeePayment.destroy({ where: { student_id: studentUser.id } });
                 await Attendance.destroy({ where: { student_id: studentUser.id } });

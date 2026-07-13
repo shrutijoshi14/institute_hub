@@ -24,6 +24,20 @@ const Enquiries = () => {
       return () => clearTimeout(timer);
     }
   }, [toast.show]);
+
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setShowModal(false);
+        setShowConvertModal(false);
+        setShowQrModal(false);
+        setShowDeleteModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
   const [convertError, setConvertError] = useState('');
   const [formError, setFormError] = useState('');
   const [settings, setSettings] = useState(null);

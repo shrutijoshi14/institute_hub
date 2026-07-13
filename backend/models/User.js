@@ -13,8 +13,7 @@ const User = sequelize.define('User', {
     },
     email: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
+        allowNull: false
     },
     password: {
         type: DataTypes.STRING,
@@ -38,36 +37,6 @@ const User = sequelize.define('User', {
     },
     username: {
         type: DataTypes.STRING,
-        allowNull: true,
-        unique: true
-    },
-    parent_id: {
-        type: DataTypes.INTEGER,
-        allowNull: true
-    },
-    // New Student Specific Fields
-    standard: {
-        type: DataTypes.STRING,
-        allowNull: true
-    },
-    parent_name: {
-        type: DataTypes.STRING,
-        allowNull: true
-    },
-    parent_phone: {
-        type: DataTypes.STRING,
-        allowNull: true
-    },
-    address: {
-        type: DataTypes.TEXT,
-        allowNull: true
-    },
-    dob: {
-        type: DataTypes.DATEONLY,
-        allowNull: true
-    },
-    blood_group: {
-        type: DataTypes.STRING,
         allowNull: true
     },
     google_id: {
@@ -84,17 +53,43 @@ const User = sequelize.define('User', {
         allowNull: true
     },
     biometric_credential_id: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING,
         allowNull: true
     },
     biometric_public_key: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING,
         allowNull: true
     },
     biometric_sign_count: {
         type: DataTypes.INTEGER,
         allowNull: true,
         defaultValue: 0
+    },
+    login_attempts: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    lockout_until: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    last_login_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    last_login_ip: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    last_login_agent: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    must_change_password: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
     }
 }, {
     tableName: 'users',

@@ -51,7 +51,7 @@ const StudentDashboard = () => {
             <div className="value">{stats.pendingTasks}</div>
           </div>
         </div>
-        <div className="card stat-card">
+        <div className="card stat-card" onClick={() => navigate('/student/syllabus-tracker')} style={{ cursor: 'pointer' }}>
           <div className="stat-icon" style={{ backgroundColor: '#FEF3C7', color: '#D97706' }}>
             <BookOpen size={24} />
           </div>

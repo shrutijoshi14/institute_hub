@@ -169,8 +169,8 @@ router.put('/salaries/:id', async (req, res) => {
 router.get('/pending-fees', async (req, res) => {
     try {
         const { getStandardFeeSqlFragment, getStandardCourseTitleSqlFragment } = require('../utils/feeHelper');
-        const feeSql = getStandardFeeSqlFragment('u.standard', 'e.batch_id');
-        const titleSql = getStandardCourseTitleSqlFragment('u.standard', 'e.batch_id');
+        const feeSql = getStandardFeeSqlFragment('s.standard', 'e.batch_id');
+        const titleSql = getStandardCourseTitleSqlFragment('s.standard', 'e.batch_id');
 
         const pending = await sequelize.query(`
             SELECT 
@@ -182,11 +182,12 @@ router.get('/pending-fees', async (req, res) => {
                 COALESCE(SUM(f.amount_paid), 0) as paid_fees,
                 (COALESCE(NULLIF(c.fees, 0), ${feeSql}) - COALESCE(SUM(f.amount_paid), 0)) as pending_fees
             FROM users u
+            LEFT JOIN students s ON u.id = s.user_id
             LEFT JOIN enrollments e ON u.id = e.student_id
             LEFT JOIN courses c ON e.course_id = c.id
             LEFT JOIN fee_payments f ON u.id = f.student_id
             WHERE u.role = 'student'
-            GROUP BY u.id, u.name, u.phone, c.title, c.fees, e.batch_id, u.standard
+            GROUP BY u.id, u.name, u.phone, c.title, c.fees, e.batch_id, s.standard
             HAVING (COALESCE(NULLIF(c.fees, 0), ${feeSql}) - COALESCE(SUM(f.amount_paid), 0)) > 0
         `, { type: sequelize.QueryTypes.SELECT });
         res.json(pending);

@@ -19,13 +19,43 @@ router.get('/', async (req, res) => {
     }
 });
 
-// @route   POST /api/faculty
-// @desc    Add a faculty member
-router.post('/', async (req, res) => {
+const { checkSubscriptionLimits } = require('../middleware/subscriptionMiddleware');
+
+router.post('/', checkSubscriptionLimits, async (req, res) => {
     try {
         const { name, qualification, experience, subject_expertise } = req.body;
         if (!name || !qualification) return res.status(400).json({ msg: 'Name and qualification are required' });
+
+        // Fetch current settings
+        const tenantStorage = require('../config/tenantContext');
+        const context = tenantStorage.getStore();
+        const tenantId = context ? context.tenantId : 1;
+
+        const Setting = require('../models/Setting');
+        const { getSettings } = require('../config/settingsCache');
+        const dbSettings = await Setting.findAll({ where: { tenant_id: tenantId } });
+        const settingsMap = {};
+        dbSettings.forEach(row => {
+            try { settingsMap[row.key] = JSON.parse(row.value); } catch(e) { settingsMap[row.key] = row.value; }
+        });
+        const currentSettings = { ...getSettings(), ...settingsMap };
+
+        const facultyLoginEnabled = currentSettings.portal_enable_faculty !== false;
+
+        const { generateTempPassword, hashPassword } = require('../utils/passwordHelper');
         
+        let tempPassword = null;
+        let hashedPassword = '*';
+        if (facultyLoginEnabled) {
+            tempPassword = generateTempPassword();
+            hashedPassword = await hashPassword(tempPassword);
+        }
+
+        // Auto-generate sequential username
+        const count = await User.count({ where: { role: 'faculty' } });
+        const seq = String(count + 1).padStart(2, '0');
+        const resolvedUsername = `faculty${seq}`;
+
         const newFaculty = await Faculty.create({ name, qualification, experience, subject_expertise });
         
         // Auto-create a user account for the faculty
@@ -33,12 +63,19 @@ router.post('/', async (req, res) => {
         await User.create({
             name,
             email,
-            password: 'password123', // Default simple password representing their login
+            password: hashedPassword, // Store ONLY bcrypt hash (or '*' if login disabled)
             role: 'faculty',
-            phone: '0000000000'
+            phone: '0000000000',
+            username: resolvedUsername,
+            status: facultyLoginEnabled ? 'active' : 'inactive',
+            must_change_password: facultyLoginEnabled
         });
 
-        res.status(201).json(newFaculty);
+        res.status(201).json({
+            faculty: newFaculty,
+            username: resolvedUsername,
+            tempPassword: tempPassword
+        });
     } catch (err) {
         console.error('Add Faculty Error:', err.message);
         res.status(500).json({ msg: 'Server Error' });

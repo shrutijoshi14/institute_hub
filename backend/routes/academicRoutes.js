@@ -7,12 +7,43 @@ const Notice = require('../models/Notice');
 const Result = require('../models/Result');
 const Submission = require('../models/Submission');
 const BatchProgress = require('../models/BatchProgress');
+const { checkSubscriptionLimits } = require('../middleware/subscriptionMiddleware');
 
 // Ensure tables are synced (for dev)
 Submission.sync();
 
+const verifyStudentAccess = async (req, res, next) => {
+    const studentId = req.params.studentId;
+    const callerId = req.headers['x-user-id'];
+    const callerRole = req.headers['x-user-role'];
+
+    if (!callerId || !callerRole) {
+        return res.status(401).json({ msg: 'Authorization headers missing' });
+    }
+
+    if (callerRole === 'student') {
+        if (String(studentId) !== String(callerId)) {
+            return res.status(403).json({ msg: 'Access Denied: You can only view your own records.' });
+        }
+    }
+
+    if (callerRole === 'parent') {
+        const StudentParentMap = require('../models/StudentParentMap');
+        const child = await StudentParentMap.findOne({
+            where: {
+                student_id: studentId,
+                parent_id: callerId
+            }
+        });
+        if (!child) {
+            return res.status(403).json({ msg: 'Access Denied: You can only view your linked children\'s records.' });
+        }
+    }
+    next();
+};
+
 // @route   GET /api/academic/attendance/:studentId
-router.get('/attendance/:studentId', async (req, res) => {
+router.get('/attendance/:studentId', verifyStudentAccess, async (req, res) => {
     try {
         const data = await Attendance.findAll({ where: { student_id: req.params.studentId } });
         res.json(data);
@@ -22,7 +53,7 @@ router.get('/attendance/:studentId', async (req, res) => {
 });
 
 // @route   GET /api/academic/results/:studentId
-router.get('/results/:studentId', async (req, res) => {
+router.get('/results/:studentId', verifyStudentAccess, async (req, res) => {
     try {
         const data = await Result.findAll({ where: { student_id: req.params.studentId } });
         res.json(data);
@@ -67,7 +98,7 @@ router.get('/assignments/:courseId', async (req, res) => {
 });
 
 // @route   GET /api/academic/student/assignments/:studentId
-router.get('/student/assignments/:studentId', async (req, res) => {
+router.get('/student/assignments/:studentId', verifyStudentAccess, async (req, res) => {
     try {
         const Enrollment = require('../models/Enrollment');
         const enrollment = await Enrollment.findOne({ where: { student_id: req.params.studentId } });
@@ -88,7 +119,7 @@ router.get('/admin/reports', async (req, res) => {
         const { standard } = req.query;
         let standardFilter = "";
         if (standard && standard !== 'All') {
-            standardFilter = ` AND (c.class_range = ${sequelize.escape(standard)} OR u.standard = ${sequelize.escape(standard)}) `;
+            standardFilter = ` AND (c.class_range = ${sequelize.escape(standard)} OR s.standard = ${sequelize.escape(standard)}) `;
         }
 
         const attendanceReport = await sequelize.query(`
@@ -102,6 +133,7 @@ router.get('/admin/reports', async (req, res) => {
                 COUNT(a.id) as total_days,
                 COALESCE(SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END), 0) as present_days
             FROM users u
+            LEFT JOIN students s ON u.id = s.user_id
             LEFT JOIN attendance a ON u.id = a.student_id
             LEFT JOIN enrollments e ON u.id = e.student_id
             LEFT JOIN courses c ON e.course_id = c.id
@@ -116,6 +148,7 @@ router.get('/admin/reports', async (req, res) => {
                 e.batch_id as batch_id,
                 AVG(r.marks_obtained) as average_marks
             FROM users u
+            LEFT JOIN students s ON u.id = s.user_id
             LEFT JOIN results r ON u.id = r.student_id
             LEFT JOIN enrollments e ON u.id = e.student_id
             LEFT JOIN courses c ON e.course_id = c.id
@@ -129,10 +162,11 @@ router.get('/admin/reports', async (req, res) => {
                    c.subject as subject, c.title as topic
             FROM attendance a 
             JOIN users u ON a.student_id = u.id 
+            LEFT JOIN students s ON u.id = s.user_id
             LEFT JOIN batch_progress bp ON a.batch_progress_id = bp.id
             LEFT JOIN batches b ON bp.batch_id = b.id
             LEFT JOIN courses c ON bp.course_id = c.id
-            WHERE 1=1 ${standard && standard !== 'All' ? ` AND (u.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
+            WHERE 1=1 ${standard && standard !== 'All' ? ` AND (s.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
             ORDER BY a.date DESC LIMIT 5
         `, { type: sequelize.QueryTypes.SELECT });
 
@@ -140,7 +174,8 @@ router.get('/admin/reports', async (req, res) => {
             SELECT r.*, u.name as student_name 
             FROM results r 
             JOIN users u ON r.student_id = u.id 
-            WHERE 1=1 ${standard && standard !== 'All' ? ` AND (u.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
+            LEFT JOIN students s ON u.id = s.user_id
+            WHERE 1=1 ${standard && standard !== 'All' ? ` AND (s.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
             ORDER BY r.exam_date DESC LIMIT 5
         `, { type: sequelize.QueryTypes.SELECT });
 
@@ -173,13 +208,14 @@ router.get('/admin/history/:type', async (req, res) => {
                        c.subject as subject, c.title as topic
                 FROM attendance a 
                 JOIN users u ON a.student_id = u.id 
+                LEFT JOIN students s ON u.id = s.user_id
                 LEFT JOIN batch_progress bp ON a.batch_progress_id = bp.id
                 LEFT JOIN batches b ON bp.batch_id = b.id
                 LEFT JOIN courses c ON bp.course_id = c.id
                 LEFT JOIN enrollments e ON a.student_id = e.student_id
                 LEFT JOIN batches b2 ON e.batch_id = b2.id
                 LEFT JOIN courses c2 ON e.course_id = c2.id
-                WHERE 1=1 ${standard && standard !== 'All' ? ` AND (u.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
+                WHERE 1=1 ${standard && standard !== 'All' ? ` AND (s.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
                 ORDER BY a.date DESC LIMIT 500
             `;
         } else {
@@ -187,7 +223,8 @@ router.get('/admin/history/:type', async (req, res) => {
                 SELECT r.*, u.name as student_name 
                 FROM results r 
                 JOIN users u ON r.student_id = u.id 
-                WHERE 1=1 ${standard && standard !== 'All' ? ` AND (u.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
+                LEFT JOIN students s ON u.id = s.user_id
+                WHERE 1=1 ${standard && standard !== 'All' ? ` AND (s.standard = ${sequelize.escape(standard)} OR u.id IN (SELECT student_id FROM enrollments e JOIN batches b2 ON e.batch_id = b2.id WHERE b2.standard = ${sequelize.escape(standard)})) ` : ""}
                 ORDER BY r.exam_date DESC LIMIT 500
             `;
         }
@@ -437,16 +474,16 @@ router.get('/student/dashboard/:studentId', async (req, res) => {
         // Fee stats
         const Course = require('../models/Course');
         const enrollRec = await sequelize.query(`
-            SELECT e.course_id, e.batch_id, u.standard 
+            SELECT e.course_id, e.batch_id, s.standard 
             FROM enrollments e 
-            JOIN users u ON e.student_id = u.id 
+            LEFT JOIN students s ON e.student_id = s.user_id 
             WHERE e.student_id = ?
         `, { replacements: [studentId], type: sequelize.QueryTypes.SELECT });
 
-        const userRec = await sequelize.query(`
-            SELECT standard FROM users WHERE id = ?
+        const studentRec = await sequelize.query(`
+            SELECT standard FROM students WHERE user_id = ?
         `, { replacements: [studentId], type: sequelize.QueryTypes.SELECT });
-        const userStandard = userRec[0]?.standard;
+        const userStandard = studentRec[0]?.standard;
 
         let totalFees = 0;
         if (enrollRec[0]) {
@@ -509,7 +546,7 @@ const upload = multer({
     }
 });
 
-router.post('/submissions', upload.single('assignment_file'), async (req, res) => {
+router.post('/submissions', upload.single('assignment_file'), checkSubscriptionLimits, async (req, res) => {
     try {
         const { assignment_id, student_id } = req.body;
         const file_path = req.file ? req.file.path : null;
@@ -594,25 +631,27 @@ router.get('/admin/finance/summary', async (req, res) => {
     try {
         const { standard } = req.query;
         const { getStandardFeeSqlFragment } = require('../utils/feeHelper');
-        const feeSql = getStandardFeeSqlFragment('u.standard', 'e.batch_id');
+        const feeSql = getStandardFeeSqlFragment('s.standard', 'e.batch_id');
         
         let expectedQuery = `
             SELECT SUM(COALESCE(NULLIF(c.fees, 0), ${feeSql})) as expected
             FROM enrollments e
             LEFT JOIN courses c ON e.course_id = c.id
             LEFT JOIN users u ON e.student_id = u.id
+            LEFT JOIN students s ON u.id = s.user_id
         `;
         
         let collectedQuery = `
             SELECT SUM(fp.amount_paid) as collected
             FROM fee_payments fp
             LEFT JOIN users u ON fp.student_id = u.id
+            LEFT JOIN students s ON u.id = s.user_id
         `;
         
         if (standard && standard !== 'All') {
             const escapedStandard = sequelize.escape(standard);
-            expectedQuery += ` WHERE COALESCE(u.standard, (SELECT standard FROM batches WHERE id = e.batch_id)) = ${escapedStandard} `;
-            collectedQuery += ` WHERE COALESCE(u.standard, (SELECT standard FROM batches b JOIN enrollments e ON b.id = e.batch_id WHERE e.student_id = u.id LIMIT 1)) = ${escapedStandard} `;
+            expectedQuery += ` WHERE COALESCE(s.standard, (SELECT standard FROM batches WHERE id = e.batch_id)) = ${escapedStandard} `;
+            collectedQuery += ` WHERE COALESCE(s.standard, (SELECT standard FROM batches b JOIN enrollments e ON b.id = e.batch_id WHERE e.student_id = u.id LIMIT 1)) = ${escapedStandard} `;
         }
         
         const expectedRes = await sequelize.query(expectedQuery, { type: sequelize.QueryTypes.SELECT });

@@ -82,6 +82,37 @@ const Login = () => {
   const [showMockGoogleModal, setShowMockGoogleModal] = useState(false);
   const [mockGoogleEmail, setMockGoogleEmail] = useState('');
   const [mockGoogleError, setMockGoogleError] = useState('');
+  const [googleSdkLoaded, setGoogleSdkLoaded] = useState(!!window.google);
+
+  useEffect(() => {
+    const checkGoogle = setInterval(() => {
+      if (window.google) {
+        setGoogleSdkLoaded(true);
+        clearInterval(checkGoogle);
+      }
+    }, 500);
+    return () => clearInterval(checkGoogle);
+  }, []);
+
+  useEffect(() => {
+    /* global google */
+    if (googleSdkLoaded && loginMethod !== 'forgot') {
+      const timer = setTimeout(() => {
+        const container = document.getElementById("googleButtonContainer");
+        if (container) {
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredentialResponse
+          });
+          google.accounts.id.renderButton(
+            container,
+            { theme: "outline", size: "large", width: 190 }
+          );
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [googleSdkLoaded, loginMethod, formData.role]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -97,6 +128,9 @@ const Login = () => {
         const res = await axios.get('http://localhost:5000/api/settings');
         if (res.data) {
           setSettings(res.data);
+          if (res.data.auth_allow_password === false) {
+            setLoginMethod('otp');
+          }
         }
       } catch (err) {
         console.error('Failed to fetch settings', err);
@@ -104,6 +138,34 @@ const Login = () => {
     };
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        setShowMockGoogleModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
+  const getTenantSubdomain = () => {
+    const params = new URLSearchParams(window.location.search);
+    const tenantParam = params.get('tenant');
+    if (tenantParam) return tenantParam;
+
+    const pathParts = window.location.pathname.split('/');
+    if (pathParts[1] === 'tenant' && pathParts[2]) {
+      return pathParts[2];
+    }
+
+    const host = window.location.hostname;
+    const parts = host.split('.');
+    if (parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'super') {
+      return parts[0];
+    }
+    return null;
+  };
 
   // 1. Password Login
   const handleSubmit = async (e) => {
@@ -113,10 +175,13 @@ const Login = () => {
     setSuccessMsg('');
 
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', formData);
-      const { role, name, userId, childId, username, password } = res.data;
+      const res = await axios.post('http://localhost:5000/api/auth/login', {
+        email: formData.email,
+        password: formData.password
+      });
+      const { role, name, userId, childId, username, password, tenantSubdomain } = res.data;
 
-      login({ role, name, id: userId, childId, username, password });
+      login({ role, name, id: userId, childId, username, password, tenantSubdomain });
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.msg || 'Authentication failed. Please check your credentials.');
@@ -134,7 +199,7 @@ const Login = () => {
     setSuccessMsg('');
 
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/otp/send', { phone, role: formData.role });
+      const res = await axios.post('http://localhost:5000/api/auth/otp/send', { phone });
       setOtpSent(true);
       setSuccessMsg(res.data.msg);
       if (res.data.otp) {
@@ -157,14 +222,51 @@ const Login = () => {
     try {
       const res = await axios.post('http://localhost:5000/api/auth/otp/verify', {
         phone,
-        role: formData.role,
         otp_code: otpCode
+      });
+      const { role, name, userId, childId, username, password, tenantSubdomain } = res.data;
+      login({ role, name, id: userId, childId, username, password, tenantSubdomain });
+      navigate('/');
+    } catch (err) {
+      setError(err.response?.data?.msg || 'Invalid or expired verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const decodeJwt = (token) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (err) {
+      console.error('Failed to decode JWT', err);
+      return null;
+    }
+  };
+
+  const handleGoogleCredentialResponse = async (response) => {
+    setLoading(true);
+    setError('');
+    try {
+      const payload = decodeJwt(response.credential);
+      if (!payload || !payload.email) {
+        throw new Error('Invalid Google credential payload');
+      }
+      const res = await axios.post('http://localhost:5000/api/auth/google-login', {
+        email: payload.email,
+        google_id: payload.sub,
+        role: formData.role,
+        name: payload.name
       });
       const { role, name, userId, childId, username, password } = res.data;
       login({ role, name, id: userId, childId, username, password });
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.msg || 'Invalid or expired verification code.');
+      setError(err.response?.data?.msg || 'No account matches this Google profile for the selected role.');
     } finally {
       setLoading(false);
     }
@@ -199,31 +301,70 @@ const Login = () => {
     axios.post('http://localhost:5000/api/auth/google-login', {
       email: emailVal,
       google_id: `google_mock_${Date.now()}`,
-      role: formData.role
+      role: formData.role,
+      name: emailVal.split('@')[0]
     })
-    .then(res => {
-      const { role, name, userId, childId, username, password } = res.data;
-      login({ role, name, id: userId, childId, username, password });
-      setShowMockGoogleModal(false);
-      navigate('/');
-    })
-    .catch(err => {
-      setMockGoogleError(err.response?.data?.msg || 'No account matches this Google profile for the selected role.');
-    })
-    .finally(() => {
-      setLoading(false);
-    });
+      .then(res => {
+        const { role, name, userId, childId, username, password } = res.data;
+        login({ role, name, id: userId, childId, username, password });
+        setShowMockGoogleModal(false);
+        navigate('/');
+      })
+      .catch(err => {
+        setMockGoogleError(err.response?.data?.msg || 'No account matches this Google profile for the selected role.');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   // 5. Biometric WebAuthn Login
   const handleBiometricLogin = async () => {
     setError('');
     setSuccessMsg('');
-    const usernameInput = prompt("Enter your account username to authenticate biometrics:", formData.role === 'student' ? 'student01' : 'admin');
-    if (!usernameInput) return;
-
     setLoading(true);
     try {
+      if (navigator.credentials && navigator.credentials.get) {
+        try {
+          // 1. Get challenge without username
+          const challengeRes = await axios.post('http://localhost:5000/api/auth/biometric/login-challenge', {});
+          const { challenge } = challengeRes.data;
+
+          // 2. Call WebAuthn prompt to get platform credential (usernameless)
+          const credential = await navigator.credentials.get({
+            publicKey: {
+              challenge: new Uint8Array(challenge.split('').map(c => c.charCodeAt(0))),
+              userVerification: 'required',
+              authenticatorAttachment: 'platform',
+              timeout: 15000
+            }
+          });
+
+          if (credential) {
+            const credentialId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+            
+            // 3. Verify on server
+            const verifyRes = await axios.post('http://localhost:5000/api/auth/biometric/login-verify', {
+              credentialId
+            });
+
+            const { role, name, userId, childId, username, password } = verifyRes.data;
+            login({ role, name, id: userId, childId, username, password });
+            navigate('/');
+            return;
+          }
+        } catch (webauthnErr) {
+          console.warn('Hardware WebAuthn rejected or usernameless not matching, falling back to secure simulated verification:', webauthnErr.message);
+        }
+      }
+
+      // Fallback: prompt for username to run simulated or scoped challenge
+      const usernameInput = prompt("Enter your account username to authenticate biometrics:", formData.role === 'student' ? 'student01' : 'admin');
+      if (!usernameInput) {
+        setLoading(false);
+        return;
+      }
+
       const challengeRes = await axios.post('http://localhost:5000/api/auth/biometric/login-challenge', {
         username: usernameInput,
         role: formData.role
@@ -231,29 +372,7 @@ const Login = () => {
 
       const { challenge, credentialId } = challengeRes.data;
 
-      let validated = false;
-      if (navigator.credentials && navigator.credentials.get) {
-        try {
-          const credential = await navigator.credentials.get({
-            publicKey: {
-              challenge: new Uint8Array(challenge.split('').map(c => c.charCodeAt(0))),
-              allowCredentials: [{
-                id: new Uint8Array(credentialId.split('').map(c => c.charCodeAt(0))),
-                type: 'public-key'
-              }],
-              userVerification: 'required',
-              timeout: 10000
-            }
-          });
-          if (credential) validated = true;
-        } catch (webauthnErr) {
-          console.warn('Hardware WebAuthn rejected, falling back to secure simulated verification:', webauthnErr.message);
-          validated = window.confirm(`Simulating hardware security key match for Registered Key [${credentialId.slice(0, 15)}...]?`);
-        }
-      } else {
-        validated = window.confirm(`Simulating hardware security key match for Registered Key [${credentialId.slice(0, 15)}...]?`);
-      }
-
+      const validated = window.confirm(`Simulating hardware security key match for Registered Key [${credentialId.slice(0, 15)}...]?`);
       if (!validated) {
         setLoading(false);
         return setError('Biometric user verification was cancelled or failed.');
@@ -327,8 +446,8 @@ const Login = () => {
     <div style={{
       height: '100vh',
       width: '100%',
-      overflowY: 'auto',
       backgroundImage: `url('/login_background_1778426489803.png')`,
+      overflowY: 'auto',
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       boxSizing: 'border-box'
@@ -445,36 +564,8 @@ const Login = () => {
             {loginMethod === 'password' && (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Portal Role</label>
-                  <div style={{ position: 'relative' }}>
-                    <Users size={18} style={{ position: 'absolute', top: '50%', left: '1rem', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-                    <select
-                      value={formData.role}
-                      onChange={(e) => {
-                        const newRole = e.target.value;
-                        setFormData({ ...formData, role: newRole });
-                        if (newRole === 'parent') {
-                          setLoginMethod('password');
-                        }
-                      }}
-                      style={{ width: '100%', padding: '0.875rem 2.5rem 0.875rem 2.5rem', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', appearance: 'none', backgroundColor: '#ffffff', fontWeight: 500 }}
-                    >
-                      <option value="student">Student Portal</option>
-                      <option value="parent">Parent View</option>
-                      <option value="faculty">Faculty Lounge</option>
-                      <option value="admin">Institute Admin Console</option>
-                      <option value="super-admin">Super Admin Console</option>
-                      <option value="accountant">Accountant Desk</option>
-                      <option value="receptionist">Reception Desk</option>
-                      <option value="librarian">Library Desk</option>
-                      <option value="transport-manager">Transport Office</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.8rem', color: getLabelColor(formData.email), textTransform: 'uppercase', transition: 'color 0.25s ease' }}>
-                    {formData.role === 'parent' ? 'Phone Number' : (formData.role === 'admin' || formData.role === 'faculty' ? 'Email Address' : 'ID / Username')}
+                    Username / Email / Mobile
                   </label>
                   <div style={{ position: 'relative' }}>
                     <AtSign size={18} style={{ position: 'absolute', top: '50%', left: '1rem', transform: 'translateY(-50%)', color: getLabelColor(formData.email), transition: 'color 0.25s ease' }} />
@@ -482,9 +573,14 @@ const Login = () => {
                       type="text"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSubmit(e);
+                        }
+                      }}
                       style={getInputStyle(formData.email, true, false)}
                       required
-                      placeholder={formData.role === 'parent' ? 'e.g. 9876543212' : (formData.role === 'student' ? 'e.g. student01' : 'Email or Username')}
+                      placeholder="e.g. admin@school.com or student01"
                     />
                   </div>
                 </div>
@@ -506,6 +602,11 @@ const Login = () => {
                       type={showPassword ? "text" : "password"}
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSubmit(e);
+                        }
+                      }}
                       style={getInputStyle(formData.password, true, true)}
                       required
                       placeholder="••••••••"
@@ -545,27 +646,7 @@ const Login = () => {
 
             {loginMethod === 'otp' && (
               <form onSubmit={otpSent ? handleVerifyOtp : handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Portal Role</label>
-                  <div style={{ position: 'relative' }}>
-                    <Users size={18} style={{ position: 'absolute', top: '50%', left: '1rem', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-                    <select
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      style={{ width: '100%', padding: '0.875rem 2.5rem 0.875rem 2.5rem', borderRadius: '12px', border: '1px solid var(--border-color)', outline: 'none', appearance: 'none', backgroundColor: '#ffffff', fontWeight: 500 }}
-                    >
-                      <option value="student">Student Portal</option>
-                      <option value="parent">Parent View</option>
-                      <option value="faculty">Faculty Lounge</option>
-                      <option value="admin">Institute Admin Console</option>
-                      <option value="super-admin">Super Admin Console</option>
-                      <option value="accountant">Accountant Desk</option>
-                      <option value="receptionist">Reception Desk</option>
-                      <option value="librarian">Library Desk</option>
-                      <option value="transport-manager">Transport Office</option>
-                    </select>
-                  </div>
-                </div>
+
 
                 <div className="form-group">
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.8rem', color: getLabelColor(phone), textTransform: 'uppercase', transition: 'color 0.25s ease' }}>Mobile Phone Number</label>
@@ -575,6 +656,11 @@ const Login = () => {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleOtpSubmit(e);
+                        }
+                      }}
                       style={getInputStyle(phone, true, false)}
                       required
                       placeholder="Enter registered mobile number"
@@ -592,6 +678,11 @@ const Login = () => {
                         type="text"
                         value={otpCode}
                         onChange={(e) => setOtpCode(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleOtpSubmit(e);
+                          }
+                        }}
                         style={getInputStyle(otpCode, true, false)}
                         required
                         placeholder="Enter 6-digit verification code"
@@ -633,6 +724,15 @@ const Login = () => {
                       type="text"
                       value={forgotIdentity}
                       onChange={(e) => setForgotIdentity(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (forgotSent) {
+                            handleResetPassword(e);
+                          } else {
+                            handleForgotPassword(e);
+                          }
+                        }
+                      }}
                       style={getInputStyle(forgotIdentity, true, false)}
                       required
                       placeholder="Username, email, or mobile"
@@ -651,6 +751,11 @@ const Login = () => {
                           type="text"
                           value={forgotOtp}
                           onChange={(e) => setForgotOtp(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleResetPassword(e);
+                            }
+                          }}
                           style={getInputStyle(forgotOtp, true, false)}
                           required
                           placeholder="Enter 6-digit recovery code"
@@ -663,13 +768,25 @@ const Login = () => {
                       <div style={{ position: 'relative' }}>
                         <Lock size={18} style={{ position: 'absolute', top: '50%', left: '1rem', transform: 'translateY(-50%)', color: getLabelColor(newPassword), transition: 'color 0.25s ease' }} />
                         <input
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
-                          style={getInputStyle(newPassword, true, false)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleResetPassword(e);
+                            }
+                          }}
+                          style={getInputStyle(newPassword, true, true)}
                           required
                           placeholder="Set your new password"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{ position: 'absolute', top: '50%', right: '1rem', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
                       </div>
                     </div>
                   </>
@@ -706,7 +823,7 @@ const Login = () => {
               </form>
             )}
 
-            {loginMethod !== 'forgot' && formData.role !== 'parent' && (
+            {loginMethod !== 'forgot' && (settings.auth_allow_google !== false || settings.auth_allow_biometric !== false) && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '2rem 0 1.5rem 0' }}>
                   <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)' }}></div>
@@ -714,51 +831,69 @@ const Login = () => {
                   <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)' }}></div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '12px', backgroundColor: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}
-                  >
-                    <GoogleIcon /> Google
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleBiometricLogin}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '12px', backgroundColor: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}
-                  >
-                    <Fingerprint size={18} color="var(--primary)" /> Biometrics
-                  </button>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: (settings.auth_allow_google !== false && settings.auth_allow_biometric !== false) ? '1.2fr 1fr' : '1fr', 
+                  gap: '1rem', 
+                  alignItems: 'center' 
+                }}>
+                  {settings.auth_allow_google !== false && (
+                    googleSdkLoaded ? (
+                      <div id="googleButtonContainer" style={{ height: '40px' }}></div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleGoogleLogin}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', height: '40px', border: '1px solid var(--border-color)', borderRadius: '12px', backgroundColor: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}
+                      >
+                        <GoogleIcon /> Google
+                      </button>
+                    )
+                  )}
+                  {settings.auth_allow_biometric !== false && (
+                    <button
+                      type="button"
+                      onClick={handleBiometricLogin}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', height: '40px', border: '1px solid var(--border-color)', borderRadius: '12px', backgroundColor: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}
+                    >
+                      <Fingerprint size={18} color="var(--primary)" /> Biometrics
+                    </button>
+                  )}
                 </div>
               </>
             )}
 
-            {loginMethod !== 'forgot' && formData.role !== 'parent' && (
+            {loginMethod !== 'forgot' && (
               <div style={{ marginTop: '1.5rem' }}>
                 {loginMethod === 'password' ? (
-                  <button
-                    type="button"
-                    onClick={() => { setLoginMethod('otp'); setError(''); setSuccessMsg(''); }}
-                    style={{ width: '100%', height: '3rem', border: '1px solid var(--border-color)', backgroundColor: '#F9FAFB', color: 'var(--text-primary)', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem' }}
-                  >
-                    Verify Access via Mobile OTP
-                  </button>
+                  settings.auth_allow_otp !== false && (
+                    <button
+                      type="button"
+                      onClick={() => { setLoginMethod('otp'); setError(''); setSuccessMsg(''); }}
+                      style={{ width: '100%', height: '3rem', border: '1px solid var(--border-color)', backgroundColor: '#F9FAFB', color: 'var(--text-primary)', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem' }}
+                    >
+                      Verify Access via Mobile OTP
+                    </button>
+                  )
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => { setLoginMethod('password'); setOtpSent(false); setError(''); setSuccessMsg(''); }}
-                    style={{ width: '100%', height: '3rem', border: '1px solid var(--border-color)', backgroundColor: '#F9FAFB', color: 'var(--text-primary)', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem' }}
-                  >
-                    Authenticate via Username / Password
-                  </button>
+                  settings.auth_allow_password !== false && (
+                    <button
+                      type="button"
+                      onClick={() => { setLoginMethod('password'); setOtpSent(false); setError(''); setSuccessMsg(''); }}
+                      style={{ width: '100%', height: '3rem', border: '1px solid var(--border-color)', backgroundColor: '#F9FAFB', color: 'var(--text-primary)', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem' }}
+                    >
+                      Authenticate via Username / Password
+                    </button>
+                  )
                 )}
               </div>
             )}
 
-            <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            <div style={{ textAlign: 'center', marginTop: '2.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
                 New student? <Link to="/enquiry" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>Submit an Admission Enquiry</Link>
               </p>
+
               <div style={{ marginTop: '2rem', fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.7 }}>
                 &copy; {new Date().getFullYear()} {settings.schoolName || 'Institute Hub'}<br />
                 All Rights Reserved.
@@ -786,6 +921,8 @@ const Login = () => {
           <div style={{
             width: '100%',
             maxWidth: '420px',
+            maxHeight: '85vh',
+            overflowY: 'auto',
             backgroundColor: '#ffffff',
             borderRadius: '8px',
             boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
@@ -798,22 +935,22 @@ const Login = () => {
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
               <svg viewBox="0 0 74 24" width="74" height="24" xmlns="http://www.w3.org/2000/svg">
-                <path fill="#ea4335" d="M68.12 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z"/>
-                <path fill="#fbbc05" d="M59.28 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z"/>
-                <path fill="#4285f4" d="M50.15 11.58c-2.22 0-4.18 1.9-4.18 4.12 0 2.25 1.93 4.12 4.18 4.12 1.34 0 2.25-.54 2.76-1.12v.89c0 1.73-.93 2.66-2.42 2.66-1.22 0-1.98-.88-2.26-1.61l-1.99.83c.58 1.39 2.11 2.98 4.25 2.98 2.46 0 4.54-1.45 4.54-4.29V11.83h-1.89v.87c-.52-.57-1.43-1.12-2.99-1.12zm-.23 6.6c-1.25 0-2.22-1.06-2.22-2.5 0-1.45.97-2.48 2.22-2.48 1.22 0 2.19 1.03 2.19 2.48 0 1.43-.97 2.5-2.19 2.5z"/>
-                <path fill="#34a853" d="M43.07 1.05h1.96V23.4h-1.96z"/>
-                <path fill="#ea4335" d="M37.91 18.23c-1.07 0-2.02-.57-2.53-1.49l6.83-2.83-.24-.59c-.41-1.1-1.63-3.32-4.32-3.32-2.66 0-4.88 2.1-4.88 4.12 0 2.27 2.19 4.12 4.9 4.12 2.19 0 3.46-1.34 3.99-2.11l-1.63-1.09c-.54.79-1.27 1.31-2.12 1.31zm-.19-5.11c.85 0 1.57.44 1.8 1.07L35.08 16.03c0-1.66 1.18-2.91 2.64-2.91z"/>
-                <path fill="#4285f4" d="M10.15 12.02V9.93h9.61c.09.53.15 1.12.15 1.8 0 2.21-.6 4.94-2.57 6.91-1.93 1.99-4.4 3.09-7.2 3.09C4.54 21.73 0 16.85 0 10.87S4.54 0 10.15 0c3.12 0 5.37 1.22 7.03 2.8l-1.98 1.98c-1.2-1.12-2.76-1.98-5.05-1.98-4.04 0-7.27 3.29-7.27 7.35s3.23 7.35 7.27 7.35c2.59 0 4.07-1.05 5-2.04.77-.77 1.25-1.89 1.4-3.44H10.15z"/>
+                <path fill="#ea4335" d="M68.12 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z" />
+                <path fill="#fbbc05" d="M59.28 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z" />
+                <path fill="#4285f4" d="M50.15 11.58c-2.22 0-4.18 1.9-4.18 4.12 0 2.25 1.93 4.12 4.18 4.12 1.34 0 2.25-.54 2.76-1.12v.89c0 1.73-.93 2.66-2.42 2.66-1.22 0-1.98-.88-2.26-1.61l-1.99.83c.58 1.39 2.11 2.98 4.25 2.98 2.46 0 4.54-1.45 4.54-4.29V11.83h-1.89v.87c-.52-.57-1.43-1.12-2.99-1.12zm-.23 6.6c-1.25 0-2.22-1.06-2.22-2.5 0-1.45.97-2.48 2.22-2.48 1.22 0 2.19 1.03 2.19 2.48 0 1.43-.97 2.5-2.19 2.5z" />
+                <path fill="#34a853" d="M43.07 1.05h1.96V23.4h-1.96z" />
+                <path fill="#ea4335" d="M37.91 18.23c-1.07 0-2.02-.57-2.53-1.49l6.83-2.83-.24-.59c-.41-1.1-1.63-3.32-4.32-3.32-2.66 0-4.88 2.1-4.88 4.12 0 2.27 2.19 4.12 4.9 4.12 2.19 0 3.46-1.34 3.99-2.11l-1.63-1.09c-.54.79-1.27 1.31-2.12 1.31zm-.19-5.11c.85 0 1.57.44 1.8 1.07L35.08 16.03c0-1.66 1.18-2.91 2.64-2.91z" />
+                <path fill="#4285f4" d="M10.15 12.02V9.93h9.61c.09.53.15 1.12.15 1.8 0 2.21-.6 4.94-2.57 6.91-1.93 1.99-4.4 3.09-7.2 3.09C4.54 21.73 0 16.85 0 10.87S4.54 0 10.15 0c3.12 0 5.37 1.22 7.03 2.8l-1.98 1.98c-1.2-1.12-2.76-1.98-5.05-1.98-4.04 0-7.27 3.29-7.27 7.35s3.23 7.35 7.27 7.35c2.59 0 4.07-1.05 5-2.04.77-.77 1.25-1.89 1.4-3.44H10.15z" />
               </svg>
             </div>
-            
+
             <h2 style={{ fontSize: '24px', fontWeight: 400, color: '#202124', textAlign: 'center', marginBottom: '8px' }}>Sign in</h2>
             <p style={{ fontSize: '16px', color: '#202124', textAlign: 'center', marginBottom: '24px' }}>to continue to Ambition Tutorials</p>
 
             <form onSubmit={handleMockGoogleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ position: 'relative', width: '100%' }}>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={mockGoogleEmail}
                   onChange={(e) => setMockGoogleEmail(e.target.value)}
                   style={{
@@ -838,8 +975,8 @@ const Login = () => {
               )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowMockGoogleModal(false)}
                   style={{
                     background: 'none',
@@ -852,7 +989,7 @@ const Login = () => {
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   type="submit"
                   style={{
                     backgroundColor: '#1a73e8',

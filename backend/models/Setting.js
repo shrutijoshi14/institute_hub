@@ -6,6 +6,11 @@ const Setting = sequelize.define('Setting', {
         type: DataTypes.STRING,
         primaryKey: true
     },
+    tenant_id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        allowNull: false
+    },
     value: {
         type: DataTypes.TEXT,
         allowNull: false

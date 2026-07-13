@@ -39,7 +39,7 @@ const Results = () => {
 
   const fetchData = async () => {
     try {
-      if (role === 'admin' || role === 'faculty') {
+      if (['super-admin', 'admin', 'faculty'].includes(role)) {
         const batchRes = await axios.get('http://localhost:5000/api/batches');
         setBatches(batchRes.data || []);
         
@@ -134,7 +134,7 @@ const Results = () => {
     ? students.filter(st => String(st.batch_id) === String(selectedBatch)) 
     : students;
 
-  if (role === 'admin' || role === 'faculty') {
+  if (['super-admin', 'admin', 'faculty'].includes(role)) {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>

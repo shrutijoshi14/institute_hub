@@ -54,7 +54,11 @@ const DEFAULT_SETTINGS = {
         "11th": ["None", "JEE Main", "JEE Advanced", "MHT CET", "BITSAT", "VITEEE", "SRMJEEE", "NEET", "AIIMS", "JIPMER", "IISER Aptitude Test", "NEST", "KVPY", "NDA", "CA Foundation", "CS Foundation", "CMA", "CUET", "SET", "NPAT", "BBA Entrance", "B.Com Entrance", "Banking Exams", "UPSC Foundation", "MPSC", "SSC", "CLAT", "AILET", "NID", "NIFT", "UCEED", "BA Entrance Exams"],
         "HSC (12th)": ["None", "JEE Main", "JEE Advanced", "MHT CET", "BITSAT", "VITEEE", "SRMJEEE", "NEET", "AIIMS", "JIPMER", "IISER Aptitude Test", "NEST", "KVPY", "NDA", "CA Foundation", "CS Foundation", "CMA", "CUET", "SET", "NPAT", "BBA Entrance", "B.Com Entrance", "Banking Exams", "UPSC Foundation", "MPSC", "SSC", "CLAT", "AILET", "NID", "NIFT", "UCEED", "BA Entrance Exams"],
         "Diploma / Vocational": ["None", "Polytechnic CET", "ITI Entrance"]
-    }
+    },
+    auth_allow_password: true,
+    auth_allow_google: true,
+    auth_allow_biometric: true,
+    auth_allow_otp: true
 };
 
 const initializeSettings = async () => {
@@ -88,7 +92,8 @@ const initializeSettings = async () => {
             for (const [key, value] of Object.entries(initialSettings)) {
                 await Setting.create({
                     key,
-                    value: JSON.stringify(value)
+                    value: JSON.stringify(value),
+                    tenant_id: 1
                 });
             }
             console.log('✅ Successfully seeded settings table in database.');

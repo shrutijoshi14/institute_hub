@@ -12,6 +12,10 @@ app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Tenant Isolation Middleware
+const tenantMiddleware = require('./middleware/tenantMiddleware');
+app.use(tenantMiddleware);
+
 // Health Check Endpoint for Render deployment validation
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', uptime: process.uptime() });
@@ -34,8 +38,11 @@ app.use('/api/progress', require('./routes/batchProgressRoutes'));
 app.use('/api/registration', require('./routes/registrationRoutes'));
 app.use('/api/fees', require('./routes/feeRoutes'));
 app.use('/api/academic', require('./routes/academicRoutes'));
+app.use('/api/academic-years', require('./routes/academicYearRoutes'));
+app.use('/api/archive', require('./routes/archiveRoutes'));
 app.use('/api/settings', require('./routes/settingsRoutes'));
 app.use('/api/daily-tracker', require('./routes/dailyTrackerRoutes'));
+app.use('/api/storage', require('./routes/storageRoutes'));
 
 app.use('/api/super-admin', require('./routes/superAdminRoutes'));
 app.use('/api/accountant', require('./routes/accountantRoutes'));

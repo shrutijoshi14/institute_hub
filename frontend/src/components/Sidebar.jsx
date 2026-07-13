@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, UserPlus, BookOpen, GraduationCap, DollarSign, MessageSquare, ClipboardList, Send, FileText, BarChart, Settings, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, BookOpen, GraduationCap, DollarSign, MessageSquare, ClipboardList, Send, FileText, BarChart, Settings, Shield, Archive } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -93,6 +93,18 @@ const Sidebar = ({ isOpen, settings, onNavItemClick }) => {
             <span className="sidebar-text">Analytics & Reports</span>
           </NavLink>
         )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/admin/promotions" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <GraduationCap size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Academic & Promotion</span>
+          </NavLink>
+        )}
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/admin/archive" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Archive size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Archive System</span>
+          </NavLink>
+        )}
         {['admin', 'super-admin', 'accountant'].includes(role) && (
           <NavLink to="/admin/fees" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
             <DollarSign size={20} style={{ flexShrink: 0 }} />
@@ -123,6 +135,18 @@ const Sidebar = ({ isOpen, settings, onNavItemClick }) => {
             <span className="sidebar-text">Portal Access</span>
           </NavLink>
         )}
+
+        {['admin', 'super-admin'].includes(role) && (
+          <NavLink to="/admin/storage" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+            <LucideIcons.HardDrive size={20} style={{ flexShrink: 0 }} />
+            <span className="sidebar-text">Storage Manager</span>
+          </NavLink>
+        )}
+
+        <NavLink to="/support" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
+          <LucideIcons.LifeBuoy size={20} style={{ flexShrink: 0 }} />
+          <span className="sidebar-text">Support Center</span>
+        </NavLink>
 
         <NavLink to="/settings" className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
           <Settings size={20} style={{ flexShrink: 0 }} />

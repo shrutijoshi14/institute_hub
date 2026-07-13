@@ -15,6 +15,15 @@ const Announcement = sequelize.define('Announcement', {
         type: DataTypes.TEXT,
         allowNull: false
     },
+    target_type: {
+        type: DataTypes.ENUM('all', 'specific'),
+        allowNull: false,
+        defaultValue: 'all'
+    },
+    target_institutes: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
     created_at: {
         type: DataTypes.DATE,
         allowNull: false,

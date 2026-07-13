@@ -20,6 +20,29 @@ const getApiBase = () => {
   return envApiUrl || 'http://localhost:5000';
 };
 
+const getTenantSubdomain = () => {
+  // 1. Check query parameter first (for local development, e.g. ?tenant=ambition)
+  const params = new URLSearchParams(window.location.search);
+  const tenantParam = params.get('tenant');
+  if (tenantParam) return tenantParam;
+
+  // 2. Check path /tenant/:subdomain
+  const pathParts = window.location.pathname.split('/');
+  if (pathParts[1] === 'tenant' && pathParts[2]) {
+    return pathParts[2];
+  }
+
+  // 3. Check hostname (for production subdomain, e.g. ambition.yourdomain.com)
+  const host = window.location.hostname;
+  const parts = host.split('.');
+  // If we have a subdomain and it's not 'www' or 'super' or 'localhost' or an IP
+  if (parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'super') {
+    return parts[0];
+  }
+  
+  return null;
+};
+
 // Global Axios Request Interceptor for Dynamic API URL Routing
 axios.interceptors.request.use(
   (config) => {
@@ -27,8 +50,24 @@ axios.interceptors.request.use(
     if (config.url && config.url.startsWith('http://localhost:5000')) {
       config.url = config.url.replace('http://localhost:5000', apiBase);
     }
+    // Inject tenant subdomain if detected
+    let subdomain = getTenantSubdomain();
+    if (!subdomain) {
+      const storedUser = sessionStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed.tenantSubdomain) {
+            subdomain = parsed.tenantSubdomain;
+          }
+        } catch (err) {}
+      }
+    }
+    if (subdomain) {
+      config.headers['x-tenant-subdomain'] = subdomain;
+    }
     // Inject logged-in user headers if available
-    const storedUser = localStorage.getItem('user');
+    const storedUser = sessionStorage.getItem('user');
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
@@ -38,8 +77,11 @@ axios.interceptors.request.use(
         if (parsed.role) {
           config.headers['x-user-role'] = parsed.role;
         }
+        if (parsed.token) {
+          config.headers['Authorization'] = `Bearer ${parsed.token}`;
+        }
       } catch (err) {
-        console.error('Failed to parse user from localStorage', err);
+        console.error('Failed to parse user from sessionStorage', err);
       }
     }
     return config;

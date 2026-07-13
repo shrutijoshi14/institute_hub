@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check for existing state on mount (without token validation for now)
-    const storedUser = localStorage.getItem('user');
+    const storedUser = sessionStorage.getItem('user');
 
     if (storedUser) {
       setUser(JSON.parse(storedUser));
@@ -17,25 +17,45 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData) => {
-    // userData expects: { role, name, id, childId, username }
     const userObj = {
-      id: userData.id || userData.userId, // handle both formats just in case
+      id: userData.id || userData.userId,
       name: userData.name,
       role: userData.role,
       username: userData.username || null,
-      childId: userData.childId || null
+      childId: userData.childId || null,
+      children: userData.children || [],
+      token: userData.token || null,
+      mustChangePassword: !!userData.mustChangePassword
     };
-    localStorage.setItem('user', JSON.stringify(userObj));
+    sessionStorage.setItem('user', JSON.stringify(userObj));
     setUser(userObj);
   };
 
+  const markPasswordChanged = () => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, mustChangePassword: false };
+      sessionStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const switchChild = (childId) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, childId };
+      sessionStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const logout = () => {
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, role: user?.role, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, role: user?.role, login, logout, switchChild, markPasswordChanged, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

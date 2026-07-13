@@ -230,7 +230,7 @@ const Notices = () => {
                 .filter(b => selectedStandard === 'All' || b.standard === selectedStandard)
                 .map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-            {(role === 'admin' || role === 'faculty') && (
+            {['super-admin', 'admin', 'faculty'].includes(role) && (
               <button className="btn btn-primary" onClick={() => openForm()} style={{ padding: '0.6rem 1rem' }}>
                 <Plus size={18} /> Post Notice
               </button>
@@ -255,13 +255,13 @@ const Notices = () => {
               <Megaphone size={24} />
             </div>
             <div style={{ flex: 1, position: 'relative' }}>
-              {(role === 'admin' || role === 'faculty') && (
+              {['super-admin', 'admin', 'faculty'].includes(role) && (
                  <div style={{ position: 'absolute', top: '-0.5rem', right: '-0.5rem', display: 'flex', gap: '0.5rem' }}>
                    <button onClick={() => openForm(notice)} style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer' }}><Edit size={16}/></button>
                    <button onClick={() => handleDeleteClick(notice)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16}/></button>
                  </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', paddingRight: role === 'admin' || role === 'faculty' ? '3rem' : '0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', paddingRight: ['super-admin', 'admin', 'faculty'].includes(role) ? '3rem' : '0' }}>
                 <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-primary)' }}>{notice.title}</h3>
                 <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{new Date(notice.created_at).toLocaleDateString('en-GB')}</span>
               </div>

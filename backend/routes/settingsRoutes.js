@@ -85,17 +85,39 @@ const { getSettings, updateSettingsCache } = require('../config/settingsCache');
 const Setting = require('../models/Setting');
 
 // Helper to read settings
-const readSettings = () => {
-    return getSettings();
+const readSettings = async (tenantId) => {
+    try {
+        const dbSettings = await Setting.findAll({
+            where: { tenant_id: tenantId }
+        });
+        const settingsMap = {};
+        dbSettings.forEach(row => {
+            try {
+                settingsMap[row.key] = JSON.parse(row.value);
+            } catch (e) {
+                settingsMap[row.key] = row.value;
+            }
+        });
+        const DEFAULT_SETTINGS = getSettings();
+        return { ...DEFAULT_SETTINGS, ...settingsMap };
+    } catch (err) {
+        console.error('Error reading settings from DB:', err);
+        return getSettings();
+    }
 };
 
 // Helper to write settings
 const writeSettings = async (settings) => {
+    const tenantStorage = require('../config/tenantContext');
+    const context = tenantStorage.getStore();
+    const tenantId = context ? context.tenantId : 1;
+
     try {
         for (const [key, value] of Object.entries(settings)) {
             await Setting.upsert({
                 key,
-                value: JSON.stringify(value)
+                value: JSON.stringify(value),
+                tenant_id: tenantId
             });
         }
         updateSettingsCache(settings);
@@ -107,9 +129,13 @@ const writeSettings = async (settings) => {
 
 // @route   GET /api/settings
 // @desc    Get School Settings
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const settings = readSettings();
+        const tenantStorage = require('../config/tenantContext');
+        const context = tenantStorage.getStore();
+        const tenantId = context ? context.tenantId : 1;
+
+        const settings = await readSettings(tenantId);
         res.json(settings);
     } catch (err) {
         console.error(err);
@@ -121,13 +147,48 @@ router.get('/', (req, res) => {
 // @desc    Update School Settings
 router.put('/', async (req, res) => {
     try {
-        const currentSettings = readSettings();
+        const tenantStorage = require('../config/tenantContext');
+        const context = tenantStorage.getStore();
+        const tenantId = context ? context.tenantId : 1;
+
+        const callerId = req.headers['x-user-id'];
+        const callerRole = req.headers['x-user-role'];
+        const User = require('../models/User');
+
+        if (!callerId || !callerRole) {
+            return res.status(401).json({ msg: 'Unauthorized: Missing user credentials' });
+        }
+
+        if (callerRole === 'super-admin') {
+            // Super Admin has global override permission
+        } else if (callerRole === 'admin') {
+            // Regular Admin is scoped to their own tenant
+            const user = await User.findByPk(callerId, { bypassTenant: true });
+            if (!user) {
+                return res.status(404).json({ msg: 'User not found' });
+            }
+            if (user.tenant_id !== tenantId) {
+                return res.status(403).json({ msg: 'Access Denied: You cannot modify settings for another institution' });
+            }
+        } else {
+            return res.status(403).json({ msg: 'Access Denied: Only administrators can modify settings' });
+        }
+
+        const currentSettings = await readSettings(tenantId);
         const newSettings = {
             ...currentSettings,
             ...req.body
         };
 
         await writeSettings(newSettings);
+
+        const AuditLog = require('../models/AuditLog');
+        await AuditLog.create({
+            action: 'UPDATE_SETTINGS',
+            table_name: 'settings',
+            details: `Updated settings: ${Object.keys(req.body).join(', ')}`
+        });
+
         res.json(newSettings);
     } catch (err) {
         console.error(err);

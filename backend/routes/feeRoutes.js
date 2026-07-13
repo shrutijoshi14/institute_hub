@@ -31,7 +31,7 @@ router.get('/stats', async (req, res) => {
 
         // Pending Fees Calculation
         // Formula: Sum of fees for all enrollments (with fallback) - total payments
-        const feeSql = getStandardFeeSqlFragment('u.standard', 'e.batch_id');
+        const feeSql = getStandardFeeSqlFragment('s.standard', 'e.batch_id');
         const totalExpected = await sequelize.query(
             `SELECT SUM(
                 COALESCE(
@@ -41,7 +41,8 @@ router.get('/stats', async (req, res) => {
              ) as total 
              FROM enrollments e 
              LEFT JOIN courses c ON e.course_id = c.id
-             LEFT JOIN users u ON e.student_id = u.id`,
+             LEFT JOIN users u ON e.student_id = u.id
+             LEFT JOIN students s ON e.student_id = s.user_id`,
             { type: sequelize.QueryTypes.SELECT }
         );
         const expected = totalExpected[0].total || 0;
@@ -63,14 +64,46 @@ router.get('/stats', async (req, res) => {
     }
 });
 
-// @route   GET /api/fees/student/:id
-// @desc    Get fee history for a student
 router.get('/student/:id', async (req, res) => {
     try {
+        const studentId = req.params.id;
         const history = await FeePayment.findAll({ 
-            where: { student_id: req.params.id },
+            where: { student_id: studentId },
             order: [['payment_date', 'DESC']]
         });
+
+        // Resolve matching registration token amount to ensure visibility in student/parent portals
+        const user = await User.findByPk(studentId);
+        if (user) {
+            const Registration = require('../models/Registration');
+            const { Op } = require('sequelize');
+            const reg = await Registration.findOne({
+                where: {
+                    [Op.or]: [
+                        { email: user.email },
+                        { phone: user.phone }
+                    ]
+                }
+            });
+
+            if (reg && parseFloat(reg.token_amount) > 0) {
+                // If there isn't already a FeePayment representing the token payment
+                const hasTokenPayment = history.some(p => parseFloat(p.amount_paid) === parseFloat(reg.token_amount));
+                if (!hasTokenPayment) {
+                    history.push({
+                        id: `REG-${reg.id}`,
+                        student_id: studentId,
+                        amount_paid: parseFloat(reg.token_amount),
+                        payment_date: reg.created_at || new Date(user.created_at || Date.now()).toISOString().split('T')[0],
+                        payment_mode: 'Online (Registration Token)',
+                        receipt_url: null
+                    });
+                    // Keep ordered DESC by date
+                    history.sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date));
+                }
+            }
+        }
+
         res.json(history);
     } catch (err) {
         console.error(err);
@@ -120,14 +153,40 @@ router.get('/summary/:studentId', async (req, res) => {
         }
 
         // Sum of payments
-        const totalPaid = await FeePayment.sum('amount_paid', { where: { student_id: studentId } }) || 0;
+        const totalPaidDb = await FeePayment.sum('amount_paid', { where: { student_id: studentId } }) || 0;
+        let totalPaid = parseFloat(totalPaidDb);
+
+        // Resolve matching registration token amount to ensure visibility in student/parent portals
+        const Registration = require('../models/Registration');
+        const { Op } = require('sequelize');
+        const reg = await Registration.findOne({
+            where: {
+                [Op.or]: [
+                    { email: student.email },
+                    { phone: student.phone }
+                ]
+            }
+        });
+
+        if (reg && parseFloat(reg.token_amount) > 0) {
+            // Check if there isn't already a FeePayment that represents this token payment
+            const hasTokenPayment = await FeePayment.findOne({
+                where: {
+                    student_id: studentId,
+                    amount_paid: reg.token_amount
+                }
+            });
+            if (!hasTokenPayment) {
+                totalPaid += parseFloat(reg.token_amount);
+            }
+        }
 
         res.json({
             studentName,
             courseTitle,
             totalFees,
-            totalPaid: parseFloat(totalPaid),
-            totalPending: Math.max(0, totalFees - parseFloat(totalPaid)),
+            totalPaid: totalPaid,
+            totalPending: Math.max(0, totalFees - totalPaid),
             fee_plan,
             total_installments,
             installment_amount,
@@ -212,8 +271,8 @@ router.post('/pay', async (req, res) => {
 // @desc    Get all students and their fee summaries for Admin
 router.get('/all-pending', async (req, res) => {
     try {
-        const titleSql = getStandardCourseTitleSqlFragment('u.standard', 'e.batch_id');
-        const feeSql = getStandardFeeSqlFragment('u.standard', 'e.batch_id');
+        const titleSql = getStandardCourseTitleSqlFragment('s.standard', 'e.batch_id');
+        const feeSql = getStandardFeeSqlFragment('s.standard', 'e.batch_id');
         const isPostgres = sequelize.getDialect() === 'postgres';
         const feePlanCast = isPostgres ? 'CAST(e.fee_plan AS VARCHAR)' : 'e.fee_plan';
         const query = `
@@ -226,16 +285,16 @@ router.get('/all-pending', async (req, res) => {
                     ${titleSql},
                     'General Course'
                 ) as course,
-                COALESCE(u.standard, 'Unassigned') as standard,
+                COALESCE(s.standard, 'Unassigned') as standard,
                 COALESCE(
                     c.board, 
-                    (SELECT board FROM courses WHERE class_range = u.standard AND fees > 0 ORDER BY fees DESC LIMIT 1),
+                    (SELECT board FROM courses WHERE class_range = s.standard AND fees > 0 ORDER BY fees DESC LIMIT 1),
                     (SELECT board FROM courses WHERE class_range = (SELECT standard FROM batches WHERE id = e.batch_id) AND fees > 0 ORDER BY fees DESC LIMIT 1),
                     'N/A'
                 ) as board,
                 COALESCE(
                     c.exam_target, 
-                    (SELECT exam_target FROM courses WHERE class_range = u.standard AND fees > 0 ORDER BY fees DESC LIMIT 1),
+                    (SELECT exam_target FROM courses WHERE class_range = s.standard AND fees > 0 ORDER BY fees DESC LIMIT 1),
                     (SELECT exam_target FROM courses WHERE class_range = (SELECT standard FROM batches WHERE id = e.batch_id) AND fees > 0 ORDER BY fees DESC LIMIT 1),
                     'None'
                 ) as exam_target,
@@ -255,11 +314,12 @@ router.get('/all-pending', async (req, res) => {
                     ) - COALESCE(SUM(fp.amount_paid), 0)
                 ) as pending
             FROM users u
+            LEFT JOIN students s ON u.id = s.user_id
             LEFT JOIN enrollments e ON u.id = e.student_id
             LEFT JOIN courses c ON e.course_id = c.id
             LEFT JOIN fee_payments fp ON u.id = fp.student_id
             WHERE u.role = 'student'
-            GROUP BY u.id, u.name, u.phone, c.title, u.standard, c.board, c.exam_target, e.batch_id, c.fees, e.fee_plan, e.total_installments, e.installment_amount
+            GROUP BY u.id, u.name, u.phone, c.title, s.standard, c.board, c.exam_target, e.batch_id, c.fees, e.fee_plan, e.total_installments, e.installment_amount
         `;
         const data = await sequelize.query(query, { type: sequelize.QueryTypes.SELECT });
         

@@ -5,10 +5,109 @@ import * as LucideIcons from 'lucide-react';
 import { STANDARDS } from '../utils/constants';
 import { useAuth } from '../context/AuthContext';
 
+const sortStandardsLogically = (stds, settingsStandards = [], defaultStandards = []) => {
+  const getGradeNumber = (str) => {
+    const match = str.match(/(?:std\s*|standard\s*|hsc\s*\(|ssc\s*\()?\b(\d+)(?:st|nd|rd|th|\b)/i);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+    return null;
+  };
+
+  const nonGradedOrder = ['FYBSC', 'College', 'Diploma / Vocational', 'Custom Courses'];
+
+  const gradeGroups = {};
+  const nonGraded = [];
+
+  stds.forEach(std => {
+    const grade = getGradeNumber(std);
+    if (grade !== null && grade >= 1 && grade <= 12) {
+      if (!gradeGroups[grade]) {
+        gradeGroups[grade] = [];
+      }
+      gradeGroups[grade].push(std);
+    } else {
+      nonGraded.push(std);
+    }
+  });
+
+  const gradedSorted = [];
+  for (let grade = 1; grade <= 12; grade++) {
+    if (gradeGroups[grade]) {
+      const options = gradeGroups[grade];
+      let best = options.find(opt => settingsStandards.includes(opt));
+      if (!best) {
+        best = options.find(opt => defaultStandards.includes(opt));
+      }
+      if (!best) {
+        best = options[0];
+      }
+      gradedSorted.push(best);
+    }
+  }
+
+  const uniqueNonGraded = Array.from(new Set(nonGraded));
+  uniqueNonGraded.sort((a, b) => {
+    const idxA = nonGradedOrder.indexOf(a);
+    const idxB = nonGradedOrder.indexOf(b);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
+  return [...gradedSorted, ...uniqueNonGraded];
+};
+
 const Settings = () => {
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [biometricLoading, setBiometricLoading] = useState(false);
+
+  const isAdmin = user && ['admin', 'super-admin'].includes(user?.role);
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'institution' : 'personal');
+
+  const renderTabs = () => {
+    if (!isAdmin) return null;
+    return (
+      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '1.5rem' }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('personal')}
+          style={{
+            padding: '0.6rem 1.25rem',
+            borderRadius: '8px',
+            border: 'none',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            backgroundColor: activeTab === 'personal' ? 'var(--primary)' : 'transparent',
+            color: activeTab === 'personal' ? 'white' : 'var(--text-secondary)',
+            transition: 'all 0.2s'
+          }}
+        >
+          Personal Profile & Biometrics
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('institution')}
+          style={{
+            padding: '0.6rem 1.25rem',
+            borderRadius: '8px',
+            border: 'none',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            backgroundColor: activeTab === 'institution' ? 'var(--primary)' : 'transparent',
+            color: activeTab === 'institution' ? 'white' : 'var(--text-secondary)',
+            transition: 'all 0.2s'
+          }}
+        >
+          Institution Settings
+        </button>
+      </div>
+    );
+  };
 
   const [settings, setSettings] = useState({
     schoolName: '',
@@ -32,6 +131,7 @@ const Settings = () => {
   });
   const [msg, setMsg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   
   const showToast = (message, type = 'success') => {
@@ -39,7 +139,7 @@ const Settings = () => {
   };
 
   useEffect(() => {
-    if (user?.id && !['admin', 'super-admin'].includes(user?.role)) {
+    if (user?.id) {
       const fetchProfile = async () => {
         try {
           const res = await axios.get(`http://localhost:5000/api/auth/profile/${user.id}`);
@@ -71,14 +171,17 @@ const Settings = () => {
           const credential = await navigator.credentials.create({
             publicKey: {
               challenge: new Uint8Array(challenge.split('').map(c => c.charCodeAt(0))),
-              rp: { name: 'Ambition Tutorials ERP' },
+              rp: { name: 'Ambition Tutorials ERP', id: window.location.hostname },
               user: {
                 id: new Uint8Array([user.id]),
                 name: user.username || user.name,
                 displayName: user.name
               },
               pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
-              authenticatorSelection: { userVerification: 'required' },
+              authenticatorSelection: { 
+                authenticatorAttachment: 'platform',
+                userVerification: 'required' 
+              },
               timeout: 15000
             }
           });
@@ -153,7 +256,10 @@ const Settings = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/settings');
+        const queryParams = new URLSearchParams(window.location.search);
+        const urlTenantId = queryParams.get('tenantId');
+        const tenantQuery = urlTenantId ? `?tenantId=${urlTenantId}` : '';
+        const res = await axios.get(`http://localhost:5000/api/settings${tenantQuery}`);
         setSettings(res.data);
         if (res.data.standards && res.data.standards.length > 0) {
           setSelectedMappingStandard(res.data.standards[0]);
@@ -298,24 +404,75 @@ const Settings = () => {
     setSettings({ ...settings, [e.target.name]: e.target.value });
   };
 
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('File size must be less than 5MB', 'error');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('file_type', 'Image');
+
+    setUploadingLogo(true);
+    showToast('Uploading logo...', 'info');
+
+    try {
+      const queryParams = new URLSearchParams(window.location.search);
+      const urlTenantId = queryParams.get('tenantId');
+      const tenantQuery = urlTenantId ? `?tenantId=${urlTenantId}` : '';
+      
+      const res = await axios.post(`http://localhost:5000/api/storage/upload${tenantQuery}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+          ? 'http://localhost:5000' 
+          : (import.meta.env.VITE_API_URL || 'http://localhost:5000');
+      
+      const fullLogoUrl = `${baseUrl}/${res.data.file_path}`;
+      
+      setSettings(prev => ({
+        ...prev,
+        logoUrl: fullLogoUrl
+      }));
+      showToast('Logo uploaded successfully! Save settings to apply.', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast(err.response?.data?.msg || 'Logo upload failed.', 'error');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const handleSave = async (e) => {
     if (e) e.preventDefault();
     setIsSaving(true);
     showToast('Saving settings...', 'info');
     try {
-      await axios.put('http://localhost:5000/api/settings', settings);
-      showToast('Settings updated successfully! Refresh the page to see logo changes (if applied globally).', 'success');
+      const queryParams = new URLSearchParams(window.location.search);
+      const urlTenantId = queryParams.get('tenantId');
+      const tenantQuery = urlTenantId ? `?tenantId=${urlTenantId}` : '';
+      await axios.put(`http://localhost:5000/api/settings${tenantQuery}`, settings);
+      showToast('Settings updated successfully!', 'success');
+      window.dispatchEvent(new Event('settingsUpdated'));
     } catch (err) {
       console.error(err);
-      showToast('Error updating settings.', 'error');
+      showToast(err.response?.data?.msg || 'Error updating settings.', 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (user && !['admin', 'super-admin'].includes(user?.role)) {
+  if (!isAdmin || activeTab === 'personal') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: 'calc(100vh - 120px)' }}>
+        {renderTabs()}
         {/* Floating Toast Notification */}
         {toast.show && (
           <div style={{
@@ -451,6 +608,7 @@ const Settings = () => {
 
   return (
     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: 'calc(100vh - 120px)', position: 'relative' }}>
+      {renderTabs()}
       <style>{`
         @keyframes slideIn {
           from {
@@ -563,18 +721,57 @@ const Settings = () => {
                 />
               </div>
 
-              <div className="form-group">
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500, fontSize: '0.875rem' }}>Logo URL</label>
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>Institution Logo</label>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  {settings.logoUrl ? (
+                    <div style={{ position: 'relative', width: '80px', height: '80px', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img src={settings.logoUrl} alt="Logo Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    </div>
+                  ) : (
+                    <div style={{ width: '80px', height: '80px', border: '1px dashed var(--border-color)', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                      <LucideIcons.Image size={24} />
+                      <span style={{ fontSize: '0.65rem', marginTop: '0.25rem' }}>No Logo</span>
+                    </div>
+                  )}
+                  
+                  <div style={{ flexGrow: 1 }}>
+                    <label style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 1rem',
+                      backgroundColor: 'var(--primary)',
+                      color: 'white',
+                      borderRadius: '6px',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
+                    }}>
+                      <LucideIcons.Upload size={16} />
+                      Upload New Logo
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload} 
+                        style={{ display: 'none' }} 
+                      />
+                    </label>
+                    {uploadingLogo && <span style={{ marginLeft: '1rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Uploading...</span>}
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Supported formats: PNG, JPG, JPEG, WEBP, GIF. Max size: 5MB.</p>
+                  </div>
+                </div>
+                
                 <input 
                   type="text" 
                   name="logoUrl"
                   value={settings.logoUrl}
                   onChange={handleChange}
                   className="form-control"
-                  placeholder="https://example.com/logo.png"
-                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none' }}
+                  placeholder="Or enter image URL manually: https://example.com/logo.png"
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', outline: 'none', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                 />
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Provide a valid image URL for the institution logo.</p>
               </div>
 
               <div className="form-group">
@@ -592,6 +789,311 @@ const Settings = () => {
                   Enter any Lucide icon name in PascalCase. Examples: <strong>GraduationCap</strong>, <strong>School</strong>, <strong>BookOpen</strong>, <strong>Library</strong>, <strong>Award</strong>.
                 </p>
               </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: '1.5rem' }}>
+            <h2>Portal Authentication Policy</h2>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              Configure which sign-in methods are allowed for users accessing this portal.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="auth_allow_password"
+                  checked={settings.auth_allow_password !== false}
+                  onChange={(e) => setSettings({ ...settings, auth_allow_password: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Enable Password Sign-in</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Users can log in with their username/email and password.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="auth_allow_google"
+                  checked={settings.auth_allow_google !== false}
+                  onChange={(e) => setSettings({ ...settings, auth_allow_google: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Enable Google Sign-in</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Users can sign in using their verified Google accounts.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="auth_allow_biometric"
+                  checked={settings.auth_allow_biometric !== false}
+                  onChange={(e) => setSettings({ ...settings, auth_allow_biometric: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Enable Biometric Sign-in</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Users can log in using Touch ID, Face ID, or Windows Hello.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="auth_allow_otp"
+                  checked={settings.auth_allow_otp !== false}
+                  onChange={(e) => setSettings({ ...settings, auth_allow_otp: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Enable Mobile OTP Sign-in</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Users can request and log in with a one-time SMS verification code.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="allow_self_onboarding"
+                  checked={settings.allow_self_onboarding !== false}
+                  onChange={(e) => setSettings({ ...settings, allow_self_onboarding: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Enable First-Time User Self-Onboarding</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Automatically register and create student accounts for new users on first Google login.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: '1.5rem' }}>
+            <h2>Portal Access Configurations</h2>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              Enable or disable portal access for specific user roles and departments.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', gridColumn: '1 / -1', padding: '1.25rem', backgroundColor: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <input 
+                    type="checkbox" 
+                    name="portal_enable_student"
+                    checked={settings.portal_enable_student !== false}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      setSettings({ 
+                        ...settings, 
+                        portal_enable_student: val,
+                        student_portal_mode: val ? (settings.student_portal_mode || 'all') : 'disabled'
+                      });
+                    }}
+                    style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                  />
+                  <div>
+                    <strong style={{ display: 'block', fontSize: '0.95rem', color: '#0F172A' }}>Student Portal Access Rules</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Configure granular dashboard availability guidelines for students.</span>
+                  </div>
+                </div>
+
+                {settings.portal_enable_student !== false && (
+                  <div style={{ paddingLeft: '2rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: '#334155' }}>
+                        <input 
+                          type="radio" 
+                          name="student_portal_mode" 
+                          value="all"
+                          checked={settings.student_portal_mode === 'all' || !settings.student_portal_mode}
+                          onChange={() => setSettings({ ...settings, student_portal_mode: 'all' })}
+                        />
+                        Enable for All Students
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: '#334155' }}>
+                        <input 
+                          type="radio" 
+                          name="student_portal_mode" 
+                          value="standards"
+                          checked={settings.student_portal_mode === 'standards'}
+                          onChange={() => setSettings({ ...settings, student_portal_mode: 'standards' })}
+                        />
+                        Enable for Selected Standards
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', color: '#334155' }}>
+                        <input 
+                          type="radio" 
+                          name="student_portal_mode" 
+                          value="disabled"
+                          checked={settings.student_portal_mode === 'disabled'}
+                          onChange={() => setSettings({ ...settings, student_portal_mode: 'disabled', portal_enable_student: false })}
+                        />
+                        Disable Student Portal
+                      </label>
+                    </div>
+
+                    {settings.student_portal_mode === 'standards' && (
+                      <div style={{ marginTop: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '0.5rem' }}>Select Allowed Standards / Courses:</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {sortStandardsLogically(
+                            Array.from(new Set([
+                              'Std 1', 'Std 2', 'Std 3', 'Std 4', 'Std 5', 'Std 6', 'Std 7', 'Std 8', 'Std 9', 'Std 10', 'Std 11', 'Std 12', 'College', 'Custom Courses',
+                              ...(settings.standards || [])
+                            ])),
+                            settings.standards || [],
+                            STANDARDS
+                          ).map(std => {
+                            const allowed = Array.isArray(settings.student_portal_allowed_standards) ? settings.student_portal_allowed_standards : [];
+                            const isChecked = allowed.includes(std);
+                            return (
+                              <label key={std} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem',
+                                padding: '0.35rem 0.75rem',
+                                backgroundColor: isChecked ? 'rgba(59, 130, 246, 0.1)' : 'white',
+                                border: isChecked ? '1px solid #3B82F6' : '1px solid #CBD5E1',
+                                borderRadius: '8px',
+                                fontSize: '0.8rem',
+                                color: isChecked ? '#1D4ED8' : '#334155',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    const nextAllowed = e.target.checked 
+                                      ? [...allowed, std]
+                                      : allowed.filter(x => x !== std);
+                                    setSettings({ ...settings, student_portal_allowed_standards: nextAllowed });
+                                  }}
+                                  style={{ display: 'none' }}
+                                />
+                                {std}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="portal_enable_parent"
+                  checked={settings.portal_enable_parent !== false}
+                  onChange={(e) => setSettings({ ...settings, portal_enable_parent: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Parent Portal</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Allow parents to track children's progress.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="portal_enable_faculty"
+                  checked={settings.portal_enable_faculty !== false}
+                  onChange={(e) => setSettings({ ...settings, portal_enable_faculty: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Faculty Portal</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Allow faculty to mark attendance and syllabus.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="portal_enable_accountant"
+                  checked={settings.portal_enable_accountant !== false}
+                  onChange={(e) => setSettings({ ...settings, portal_enable_accountant: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Accountant Portal</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Allow accountants to manage fee collection.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="portal_enable_receptionist"
+                  checked={settings.portal_enable_receptionist !== false}
+                  onChange={(e) => setSettings({ ...settings, portal_enable_receptionist: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Receptionist Portal</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Allow receptionist to register enquiries.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="portal_enable_librarian"
+                  checked={settings.portal_enable_librarian !== false}
+                  onChange={(e) => setSettings({ ...settings, portal_enable_librarian: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Library Portal</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Allow library book issue and inventory.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="portal_enable_transport"
+                  checked={settings.portal_enable_transport !== false}
+                  onChange={(e) => setSettings({ ...settings, portal_enable_transport: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Transport Portal</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Allow managers to assign routes and buses.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="portal_enable_hostel"
+                  checked={settings.portal_enable_hostel !== false}
+                  onChange={(e) => setSettings({ ...settings, portal_enable_hostel: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Hostel Portal</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Allow hostel managers to map room occupancy.</span>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  name="portal_enable_alumni"
+                  checked={settings.portal_enable_alumni === true}
+                  onChange={(e) => setSettings({ ...settings, portal_enable_alumni: e.target.checked })}
+                  style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Alumni Portal (Future)</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Prepare configuration registry toggles for future releases.</span>
+                </div>
+              </label>
             </div>
           </div>
 

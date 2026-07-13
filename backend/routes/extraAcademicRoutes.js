@@ -132,15 +132,65 @@ router.put('/complaints/:id', async (req, res) => {
     }
 });
 
-// --- Announcements ---
-// @route   GET /api/extra-academic/announcements
-// @desc    Get all broadcast announcements
-router.get('/announcements', async (req, res) => {
+// @route   GET /api/extra-academic/complaints/user/:userId
+// @desc    List complaints filed by a specific user
+router.get('/complaints/user/:userId', async (req, res) => {
     try {
-        const list = await Announcement.findAll({ order: [['created_at', 'DESC']] });
+        const list = await sequelize.query(`
+            SELECT c.*, u.name as reporter_name, u.role as reporter_role
+            FROM complaints c
+            JOIN users u ON c.user_id = u.id
+            WHERE c.user_id = :userId
+            ORDER BY c.created_at DESC
+        `, { 
+            replacements: { userId: req.params.userId },
+            type: sequelize.QueryTypes.SELECT 
+        });
         res.json(list);
     } catch (err) {
         console.error(err);
+        res.status(500).json({ msg: 'Server Error' });
+    }
+});
+
+// @route   DELETE /api/extra-academic/complaints/:id
+// @desc    Delete a complaint
+router.delete('/complaints/:id', async (req, res) => {
+    try {
+        const record = await Complaint.findByPk(req.params.id);
+        if (!record) return res.status(404).json({ msg: 'Complaint not found' });
+        await record.destroy();
+        res.json({ msg: 'Complaint deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: 'Server Error' });
+    }
+});
+
+// --- Announcements ---
+// @route   GET /api/extra-academic/announcements
+// @desc    Get all broadcast announcements matching tenant
+router.get('/announcements', async (req, res) => {
+    try {
+        const tenantId = req.tenantId || 1;
+        const list = await Announcement.findAll({ 
+            order: [['created_at', 'DESC']],
+            bypassTenant: true
+        });
+        
+        // Filter announcements targeted to this tenant
+        const filtered = list.filter(ann => {
+            if (ann.target_type === 'all') return true;
+            if (ann.target_type === 'specific') {
+                const ids = ann.target_institutes ? ann.target_institutes.split(',').map(Number) : [];
+                return ids.includes(Number(tenantId));
+            }
+            return false;
+        });
+
+        res.json(filtered);
+    } catch (err) {
+        console.error('Fetch tenant announcements error:', err);
         res.status(500).json({ msg: 'Server Error' });
     }
 });

@@ -70,7 +70,7 @@ const Attendance = () => {
         console.error(err);
       }
       
-      if (role === 'admin' || role === 'faculty') {
+      if (['super-admin', 'admin', 'faculty'].includes(role)) {
         const standardParam = selectedStandard !== 'All' ? `?standard=${selectedStandard}` : '';
         const statsRes = await axios.get(`http://localhost:5000/api/academic/admin/reports${standardParam}`);
         const loadedStudents = statsRes.data.attendanceReport || [];
@@ -320,7 +320,7 @@ const Attendance = () => {
   const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
   const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
 
-  if (role === 'admin' || role === 'faculty') {
+  if (['super-admin', 'admin', 'faculty'].includes(role)) {
     const activeSession = selectedClassSession ? classSessions.find(s => String(s.id) === String(selectedClassSession)) : null;
     const isCompleted = activeSession && activeSession.status === 'Completed';
 

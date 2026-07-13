@@ -137,6 +137,14 @@ const seedData = async () => {
         await Announcement.create({ title: 'Welcome to the New ERP Portal!', content: 'All modules are now connected and online for our students, parents, faculty, and administrative staff.' });
         await Leave.create({ user_id: facultyUser.id, type: 'sick', start_date: '2026-06-01', end_date: '2026-06-02', reason: 'Flu symptoms', status: 'pending' });
 
+        console.log('Injecting Storage Files...');
+        const StorageFile = require('./models/StorageFile');
+        await StorageFile.create({ tenant_id: 1, name: 'logo_banner.png', file_type: 'Image', size_kb: 450, file_path: 'uploads/storage/logo_banner.png', uploaded_by: 'Super Admin' });
+        await StorageFile.create({ tenant_id: 1, name: 'onboarding_guidelines.pdf', file_type: 'Document', size_kb: 1200, file_path: 'uploads/storage/onboarding_guidelines.pdf', uploaded_by: 'Downtown Admin' });
+        await StorageFile.create({ tenant_id: 1, name: 'class_10_merit_list.xlsx', file_type: 'Report', size_kb: 85, file_path: 'uploads/storage/class_10_merit_list.xlsx', uploaded_by: 'Downtown Admin' });
+        await StorageFile.create({ tenant_id: 1, name: 'tutorial_intro.mp4', file_type: 'Video', size_kb: 24500, file_path: 'uploads/storage/tutorial_intro.mp4', uploaded_by: 'Downtown Admin' });
+        await StorageFile.create({ tenant_id: 1, name: 'completion_certificate_sample.pdf', file_type: 'Certificate', size_kb: 320, file_path: 'uploads/storage/completion_certificate_sample.pdf', uploaded_by: 'Downtown Admin' });
+
         console.log('Seeding completed successfully with connected data loops!');
         process.exit(0);
     } catch (err) {

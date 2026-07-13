@@ -11,6 +11,7 @@ const StudentSyllabusTracker = () => {
   const [progressData, setProgressData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedSubject, setExpandedSubject] = useState(null);
+  const [studentEnrollments, setStudentEnrollments] = useState([]);
 
   useEffect(() => {
     const fetchBatchesAndStudent = async () => {
@@ -22,9 +23,14 @@ const StudentSyllabusTracker = () => {
         if (studentId) {
           const studentRes = await axios.get('http://localhost:5000/api/auth/users?role=student');
           const student = studentRes.data.find(s => String(s.id) === String(studentId));
-          const batchId = student?.Enrollments?.[0]?.batch_id;
-          if (batchId) {
-            setSelectedBatchId(String(batchId));
+          if (student) {
+            const enrollments = student.Enrollments || [];
+            setStudentEnrollments(enrollments);
+            const sortedEnrollments = [...enrollments].sort((a, b) => b.id - a.id);
+            const batchId = sortedEnrollments[0]?.batch_id;
+            if (batchId) {
+              setSelectedBatchId(String(batchId));
+            }
           }
         }
       } catch (err) {
@@ -101,7 +107,7 @@ const StudentSyllabusTracker = () => {
           style={{ padding: '0.5rem 2.5rem 0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', minWidth: '250px', fontWeight: 600, backgroundColor: 'white', cursor: 'pointer' }}
         >
           <option value="">-- Choose Batch --</option>
-          {batches.map(b => <option key={b.id} value={b.id}>{b.name} ({b.standard})</option>)}
+          {batches.filter(b => studentEnrollments.some(e => String(e.batch_id) === String(b.id))).map(b => <option key={b.id} value={b.id}>{b.name} ({b.standard})</option>)}
         </select>
       </div>
 

@@ -309,5 +309,21 @@
             "None",
             "SAT"
         ]
-    }
+    },
+    "auth_allow_password": true,
+    "auth_allow_google": true,
+    "auth_allow_biometric": true,
+    "auth_allow_otp": true,
+    "allow_self_onboarding": true,
+    "portal_enable_student": true,
+    "portal_enable_parent": true,
+    "portal_enable_faculty": true,
+    "portal_enable_accountant": true,
+    "portal_enable_receptionist": true,
+    "portal_enable_librarian": true,
+    "portal_enable_transport": true,
+    "portal_enable_hostel": true,
+    "portal_enable_alumni": false,
+    "student_portal_mode": "all",
+    "student_portal_allowed_standards": []
 }

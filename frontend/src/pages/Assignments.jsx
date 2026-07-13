@@ -53,7 +53,7 @@ const Assignments = () => {
         res = await axios.get(`http://localhost:5000/api/academic/assignments/${courseId}`);
       }
       setAssignments(res.data || []);
-      if (role === 'admin' || role === 'faculty') {
+      if (['super-admin', 'admin', 'faculty'].includes(role)) {
         const subRes = await axios.get('http://localhost:5000/api/academic/submissions/all');
         setSubmissions(subRes.data || []);
       }
@@ -82,7 +82,7 @@ const Assignments = () => {
   };
 
   useEffect(() => {
-    if (role === 'admin' || role === 'faculty') {
+    if (['super-admin', 'admin', 'faculty'].includes(role)) {
       const fetchInitialData = async () => {
         try {
           const [courseRes, batchRes, settingsRes] = await Promise.all([
@@ -108,7 +108,7 @@ const Assignments = () => {
 
   // Refetch when selected course changes (only for admin/faculty)
   useEffect(() => {
-     if ((role === 'admin' || role === 'faculty') && selectedCourseId) {
+     if (['super-admin', 'admin', 'faculty'].includes(role) && selectedCourseId) {
         fetchData(selectedCourseId);
      }
   }, [selectedCourseId, role]);
@@ -286,7 +286,7 @@ const Assignments = () => {
   const activeBoards = settings?.boards && settings.boards.length > 0 ? settings.boards : BOARDS;
   const activeExams = settings?.exams && settings.exams.length > 0 ? settings.exams : EXAMS;
 
-  if (role === 'admin' || role === 'faculty') {
+  if (['super-admin', 'admin', 'faculty'].includes(role)) {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>

@@ -30,6 +30,7 @@ const StudentManagement = () => {
   
   const [batches, setBatches] = useState([]);
   const [settings, setSettings] = useState(null);
+  const [createdCredentials, setCreatedCredentials] = useState(null);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '',
     standard: '', parent_name: '', parent_phone: '', address: '', dob: '', blood_group: '',
@@ -125,7 +126,15 @@ const StudentManagement = () => {
         await axios.put(`http://localhost:5000/api/auth/users/${editingStudent}`, data);
         showToast(`Student ${data.name} updated successfully!`, 'success');
       } else {
-        await axios.post('http://localhost:5000/api/auth/users', { ...data, role: 'student' });
+        const res = await axios.post('http://localhost:5000/api/auth/users', { ...data, role: 'student' });
+        const { user, tempPassword, parentTempPassword } = res.data;
+        setCreatedCredentials({
+            name: user.name,
+            username: user.username,
+            password: tempPassword,
+            parentUsername: res.data.parent ? res.data.parent.username : `parent_${user.username}`,
+            parentPassword: parentTempPassword
+        });
         showToast(`Student ${data.name} added successfully!`, 'success');
       }
       fetchStudents();
@@ -381,19 +390,11 @@ const StudentManagement = () => {
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Student Username</label>
                       <input type="text" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} placeholder="Auto-generated if empty" />
                     </div>
-                    <div className="form-group">
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Student Password</label>
-                      <input type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} placeholder="Default: studentpass123" />
-                    </div>
                   </div>
                   <div className="form-grid-row">
                     <div className="form-group">
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Parent Username</label>
                       <input type="text" value={formData.parent_username} onChange={e => setFormData({...formData, parent_username: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} placeholder="Auto-generated if empty" />
-                    </div>
-                    <div className="form-group">
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Parent Password</label>
-                      <input type="text" value={formData.parent_password} onChange={e => setFormData({...formData, parent_password: e.target.value})} style={{ width: '100%', padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-color)', outline: 'none' }} placeholder="Auto-generated if empty" />
                     </div>
                   </div>
                 </div>
@@ -436,6 +437,146 @@ const StudentManagement = () => {
         message="Are you sure you want to permanently delete this student's account? All their data, including fees and results, will be lost."
         itemName={deletingName}
       />
+
+      {createdCredentials && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.75)',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(8px)',
+          fontFamily: "'Outfit', sans-serif"
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            padding: '2.5rem',
+            width: '100%',
+            maxWidth: '520px',
+            color: '#1E293B',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            position: 'relative'
+          }}>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 1rem 0', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <CheckCircle size={28} color="#10B981" /> Account Credentials Generated
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: '#64748B', lineHeight: 1.5, margin: '0 0 1.5rem 0' }}>
+              Below are the system-generated login credentials for the new account. 
+              <strong style={{ color: '#EF4444', display: 'block', marginTop: '0.5rem' }}>
+                ⚠️ WARNING: This is the ONLY time these temporary passwords will be displayed. Copy or print them now; they cannot be retrieved later.
+              </strong>
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: '#F8FAFC', padding: '1.5rem', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '2rem' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Student Login</span>
+                <div style={{ marginTop: '0.25rem', fontSize: '0.95rem' }}><strong>Username:</strong> <code style={{ backgroundColor: '#E2E8F0', padding: '2px 6px', borderRadius: '4px' }}>{createdCredentials.username}</code></div>
+                <div style={{ marginTop: '0.25rem', fontSize: '0.95rem' }}><strong>Password:</strong> {createdCredentials.password ? (
+                  <code style={{ backgroundColor: '#F1F5F9', color: '#0F172A', padding: '2px 6px', borderRadius: '4px', border: '1px dashed #CBD5E1' }}>{createdCredentials.password}</code>
+                ) : (
+                  <span style={{ color: '#EF4444', fontStyle: 'italic', fontWeight: 500 }}>Disabled by Portal Access Rules (Profile Only Created)</span>
+                )}</div>
+              </div>
+              
+              {createdCredentials.parentUsername && (
+                <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Parent Login</span>
+                  <div style={{ marginTop: '0.25rem', fontSize: '0.95rem' }}><strong>Username:</strong> <code style={{ backgroundColor: '#E2E8F0', padding: '2px 6px', borderRadius: '4px' }}>{createdCredentials.parentUsername}</code></div>
+                  <div style={{ marginTop: '0.25rem', fontSize: '0.95rem' }}><strong>Password:</strong> {createdCredentials.parentPassword ? (
+                    <code style={{ backgroundColor: '#F1F5F9', color: '#0F172A', padding: '2px 6px', borderRadius: '4px', border: '1px dashed #CBD5E1' }}>{createdCredentials.parentPassword}</code>
+                  ) : (
+                    <span style={{ color: '#EF4444', fontStyle: 'italic', fontWeight: 500 }}>Disabled by Portal Access Rules</span>
+                  )}</div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const text = `STUDENT CREDENTIALS\nUsername: ${createdCredentials.username}\nPassword: ${createdCredentials.password}` + 
+                    (createdCredentials.parentPassword ? `\n\nPARENT CREDENTIALS\nUsername: ${createdCredentials.parentUsername}\nPassword: ${createdCredentials.parentPassword}` : '');
+                  navigator.clipboard.writeText(text);
+                  alert('Credentials copied to clipboard!');
+                }}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  border: '1px solid #E2E8F0',
+                  backgroundColor: 'white',
+                  color: '#334155',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Copy to Clipboard
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const printWindow = window.open('', '_blank');
+                  printWindow.document.write(`
+                    <html>
+                    <head><title>Credentials Print</title></head>
+                    <body style="font-family: sans-serif; padding: 40px;">
+                      <h2>Account Credentials</h2>
+                      <hr />
+                      <h3>Student Account</h3>
+                      <p><strong>Username:</strong> ${createdCredentials.username}</p>
+                      <p><strong>Password:</strong> ${createdCredentials.password}</p>
+                      ${createdCredentials.parentPassword ? `
+                        <hr />
+                        <h3>Parent Account</h3>
+                        <p><strong>Username:</strong> ${createdCredentials.parentUsername}</p>
+                        <p><strong>Password:</strong> ${createdCredentials.parentPassword}</p>
+                      ` : ''}
+                      <script>window.print();</script>
+                    </body>
+                    </html>
+                  `);
+                  printWindow.document.close();
+                }}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#3B82F6',
+                  color: 'white',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Print
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatedCredentials(null)}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#1E293B',
+                  color: 'white',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

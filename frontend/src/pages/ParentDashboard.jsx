@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { BookOpen, Calendar, IndianRupee, Megaphone, CheckCircle } from 'lucide-react';
 
 const ParentDashboard = () => {
-  const { user } = useAuth();
+  const { user, switchChild } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     latestNotice: null,
@@ -39,13 +39,29 @@ const ParentDashboard = () => {
       }
     };
     fetchParentData();
-  }, [user.id]);
+  }, [user.id, user.childId]);
 
   return (
     <div>
       <h1 className="page-title">Parent Dashboard</h1>
+      
+      {user.children && user.children.length > 1 && (
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#F8FAFC', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Active Child Profile:</label>
+          <select
+            value={user.childId || ''}
+            onChange={(e) => switchChild(Number(e.target.value))}
+            style={{ padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', fontWeight: 600, cursor: 'pointer', backgroundColor: 'white' }}
+          >
+            {user.children.map(child => (
+              <option key={child.id} value={child.id}>{child.name} ({child.standard})</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {stats.studentName && (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: '-1.5rem' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: user.children && user.children.length > 1 ? '0rem' : '-1.5rem' }}>
           Linked Child: <strong>{stats.studentName}</strong> (Student ID: AMB-{user.childId.toString().padStart(4, '0')})
         </p>
       )}
