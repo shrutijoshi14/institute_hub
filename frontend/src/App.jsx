@@ -59,6 +59,19 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const DashboardRouter = () => {
+  const { role } = useAuth();
+  if (role === 'super-admin') return <SuperAdminDashboard />;
+  if (role === 'student') return <StudentDashboard />;
+  if (role === 'parent') return <ParentDashboard />;
+  if (role === 'faculty') return <TeacherDashboard />;
+  if (role === 'accountant') return <AccountantDashboard />;
+  if (role === 'receptionist') return <ReceptionistDashboard />;
+  if (role === 'librarian') return <LibrarianDashboard />;
+  if (role === 'transport-manager') return <TransportDashboard />;
+  return <Dashboard />; // Admin dashboard fallback
+};
+
 const dashboardRoutes = (
   <>
     <Route index element={<DashboardRouter />} />
