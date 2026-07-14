@@ -19,6 +19,29 @@ const sanitizeCustomDomain = (domain) => {
     return clean || null;
 };
 
+// Helper to register custom domains automatically on Render using the Render REST API
+const registerRenderDomain = async (domainName) => {
+    if (domainName && process.env.RENDER_API_KEY && process.env.RENDER_FRONTEND_SERVICE_ID) {
+        const axios = require('axios');
+        try {
+            await axios.post(
+                `https://api.render.com/v1/services/${process.env.RENDER_FRONTEND_SERVICE_ID}/custom-domains`,
+                { name: domainName },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${process.env.RENDER_API_KEY}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            console.log(`Render API: Successfully registered custom domain ${domainName} on Render frontend static site.`);
+        } catch (err) {
+            console.error(`Render API Error for ${domainName}:`, err.response ? err.response.data : err.message);
+        }
+    }
+};
+
 // Helper to calculate folder size recursively
 function getDirSize(dirPath) {
     let size = 0;
@@ -422,6 +445,11 @@ router.post('/institutes', async (req, res) => {
             expiry_date: calculatedExpiry
         });
 
+        // Programmatic Render Custom Domain Registration
+        if (cleanCustomDomain) {
+            registerRenderDomain(cleanCustomDomain);
+        }
+
         // Create default Administrator user account
         const User = require('../models/User');
         const adminUser = await User.create({
@@ -521,6 +549,11 @@ router.put('/institutes/:id', async (req, res) => {
         institute.subscription_end_date = (subscription_end_date === '' || subscription_end_date === null) ? null : (subscription_end_date !== undefined ? subscription_end_date : institute.subscription_end_date);
 
         await institute.save();
+
+        // Programmatic Render Custom Domain Registration on update
+        if (cleanCustomDomain) {
+            registerRenderDomain(cleanCustomDomain);
+        }
 
         // Update or create corresponding Administrator user account
         if (adminEmail || adminPassword || adminUsername || adminName || adminMobile) {
