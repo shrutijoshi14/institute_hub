@@ -227,24 +227,14 @@ const SuperAdminDashboard = () => {
     const isLocal = hostname.includes('localhost') || hostname.includes('127.0.0.1');
 
     if (isLocal) {
-      return `${window.location.origin}/?tenant=${inst.subdomain}`;
+      return `${window.location.origin}/tenant/${inst.subdomain}`;
     }
 
     if (inst.custom_domain) {
       return `https://${inst.custom_domain}`;
     }
 
-    const isRender = hostname.includes('onrender.com');
-    if (isRender) {
-      return `${window.location.origin}/?tenant=${inst.subdomain}`;
-    }
-
-    const parts = hostname.split('.');
-    let rootDomain = hostname;
-    if (parts.length > 2) {
-      rootDomain = parts.slice(1).join('.');
-    }
-    return `https://${inst.subdomain}.${rootDomain}`;
+    return `${window.location.origin}/tenant/${inst.subdomain}`;
   };
 
   const handleCopyUrl = (url) => {
@@ -1091,8 +1081,8 @@ const SuperAdminDashboard = () => {
                     <th>Institute URL</th>
                     <th>Plan</th>
                     <th>Status</th>
-                    <th style={{ textAlign: "center" }}>Students</th>
-                    <th style={{ textAlign: "center" }}>Faculty</th>
+                    <th style={{ textAlign: "center" }}>Student Limit</th>
+                    <th style={{ textAlign: "center" }}>Faculty Limit</th>
                     <th>Storage Used</th>
                     <th>Expiry Date</th>
                     <th style={{ textAlign: "center" }}>Actions</th>
@@ -1109,7 +1099,9 @@ const SuperAdminDashboard = () => {
                         </td>
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <code style={{ fontSize: "0.8rem", color: "var(--primary)" }}>{inst.subdomain}</code>
+                            <code style={{ fontSize: "0.8rem", color: "var(--primary)" }}>
+                              {portalUrl.replace('https://', '').replace('http://', '')}
+                            </code>
                             <button
                               type="button"
                               onClick={() => handleCopyUrl(portalUrl)}
