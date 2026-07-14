@@ -350,7 +350,7 @@ router.post('/institutes', async (req, res) => {
                 } catch (e) {}
             }
             const isLocal = req.headers.host && (req.headers.host.includes('localhost') || req.headers.host.includes('127.0.0.1'));
-            return process.env.FRONTEND_URL || (isLocal ? 'http://localhost:5173' : 'https://institute-app-frontend.onrender.com');
+            return process.env.FRONTEND_URL || (isLocal ? 'http://localhost:5173' : 'https://institute-hub-2.onrender.com');
         };
 
         const frontendBase = getFrontendBaseUrl(req);
