@@ -33,11 +33,15 @@ const getTenantSubdomain = () => {
   // 1. Check query parameter first (for local development, e.g. ?tenant=ambition)
   const params = new URLSearchParams(window.location.search);
   const tenantParam = params.get('tenant');
-  if (tenantParam) return tenantParam;
+  if (tenantParam) {
+    sessionStorage.setItem('tenantSubdomain', tenantParam);
+    return tenantParam;
+  }
 
   // 2. Check path /tenant/:subdomain
   const pathParts = window.location.pathname.split('/');
   if (pathParts[1] === 'tenant' && pathParts[2]) {
+    sessionStorage.setItem('tenantSubdomain', pathParts[2]);
     return pathParts[2];
   }
 
@@ -46,8 +50,13 @@ const getTenantSubdomain = () => {
   const parts = host.split('.');
   // If we have a subdomain and it's not 'www' or 'super' or 'localhost' or an IP
   if (parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'super') {
+    sessionStorage.setItem('tenantSubdomain', parts[0]);
     return parts[0];
   }
+  
+  // 4. Fallback to cached session storage if already resolved
+  const cached = sessionStorage.getItem('tenantSubdomain');
+  if (cached) return cached;
   
   return null;
 };

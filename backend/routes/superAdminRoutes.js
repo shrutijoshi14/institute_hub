@@ -338,10 +338,23 @@ router.post('/institutes', async (req, res) => {
             }
         }
 
-        // Auto-generate Login URL
-        const isLocal = req.headers.host && (req.headers.host.includes('localhost') || req.headers.host.includes('127.0.0.1'));
-        const frontendBase = process.env.FRONTEND_URL || (isLocal ? 'http://localhost:5173' : 'https://institute-app-frontend.onrender.com');
-        const loginUrl = `${frontendBase}/?tenant=${subdomain}`;
+        // Auto-generate Login URL dynamically using request headers (referer/origin)
+        const getFrontendBaseUrl = (req) => {
+            const referer = req.headers.referer;
+            const origin = req.headers.origin;
+            if (origin) return origin;
+            if (referer) {
+                try {
+                    const parsed = new URL(referer);
+                    return parsed.origin;
+                } catch (e) {}
+            }
+            const isLocal = req.headers.host && (req.headers.host.includes('localhost') || req.headers.host.includes('127.0.0.1'));
+            return process.env.FRONTEND_URL || (isLocal ? 'http://localhost:5173' : 'https://institute-app-frontend.onrender.com');
+        };
+
+        const frontendBase = getFrontendBaseUrl(req);
+        const loginUrl = `${frontendBase}/tenant/${subdomain}`;
 
         // Calculate Expiry Date based on Trial Days
         let calculatedExpiry = null;
