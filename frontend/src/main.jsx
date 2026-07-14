@@ -10,14 +10,23 @@ import axios from 'axios';
 //    - If VITE_FORCE_LIVE_API is 'true', force connection to live Render backend.
 //    - Otherwise, default to local backend (http://localhost:5000).
 const getApiBase = () => {
-  const envApiUrl = import.meta.env.VITE_API_URL;
+  let envApiUrl = import.meta.env.VITE_API_URL;
   const forceLive = import.meta.env.VITE_FORCE_LIVE_API === 'true';
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   if (isLocalhost && !forceLive) {
     return 'http://localhost:5000';
   }
-  return envApiUrl || 'http://localhost:5000';
+  
+  if (envApiUrl) {
+    // Ensure the protocol is attached (Render host properties are protocol-less)
+    envApiUrl = envApiUrl.trim();
+    if (!envApiUrl.startsWith('http://') && !envApiUrl.startsWith('https://')) {
+      envApiUrl = `https://${envApiUrl}`;
+    }
+    return envApiUrl;
+  }
+  return 'http://localhost:5000';
 };
 
 const getTenantSubdomain = () => {

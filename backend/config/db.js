@@ -746,6 +746,44 @@ const connectDB = async () => {
             console.log('Notice: User count query details:', countErr.message);
         }
 
+        // Self-Healing Schema: Automatically add missing tenant_id column to tables if they existed before tenant update
+        try {
+            console.log('Running self-healing database schema check (ensuring tenant_id column is present on all models)...');
+            const isMySQL = sequelize.getDialect() === 'mysql';
+            const isPostgres = sequelize.getDialect() === 'postgres' || sequelize.getDialect() === 'postgresql';
+            
+            const models = Object.keys(sequelize.models);
+            for (const modelName of models) {
+                const model = sequelize.models[modelName];
+                if (model.rawAttributes && model.rawAttributes.tenant_id) {
+                    const tableName = model.getTableName();
+                    if (isMySQL) {
+                        try {
+                            await sequelize.query(`ALTER TABLE \`${tableName}\` ADD COLUMN IF NOT EXISTS tenant_id INT NOT NULL DEFAULT 1`);
+                        } catch (err) {
+                            try {
+                                await sequelize.query(`ALTER TABLE \`${tableName}\` ADD COLUMN tenant_id INT NOT NULL DEFAULT 1`);
+                                console.log(`MySQL Auto-Migration: Added tenant_id column to ${tableName}`);
+                            } catch (alterErr) {
+                                // Column probably already exists
+                            }
+                        }
+                    } else if (isPostgres) {
+                        try {
+                            const nameOnly = typeof tableName === 'object' ? tableName.tableName : tableName;
+                            await sequelize.query(`ALTER TABLE "${nameOnly}" ADD COLUMN IF NOT EXISTS tenant_id INTEGER NOT NULL DEFAULT 1`);
+                            console.log(`PostgreSQL Auto-Migration: Checked/Added tenant_id column to ${nameOnly}`);
+                        } catch (err) {
+                            console.log(`PostgreSQL: Notice: Failed to add tenant_id to ${typeof tableName === 'object' ? tableName.tableName : tableName}:`, err.message);
+                        }
+                    }
+                }
+            }
+            console.log('✅ Self-healing database schema check complete.');
+        } catch (migrationErr) {
+            console.error('Self-healing schema migration failed:', migrationErr.message);
+        }
+
         // Ensure at least one super-admin user exists in the database (Self-Healing logic)
         try {
             const User = require('../models/User');

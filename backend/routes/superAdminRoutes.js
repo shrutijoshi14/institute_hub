@@ -74,14 +74,18 @@ router.post('/login', async (req, res) => {
         user.last_login_agent = req.headers['user-agent'];
         await user.save();
 
-        await AuditLog.create({
-            user_id: user.id,
-            action: 'LOGIN_SUCCESS',
-            table_name: 'users',
-            record_id: user.id,
-            details: `Super Admin ${user.username} logged in successfully`,
-            ip_address: req.ip || req.headers['x-forwarded-for'] || null
-        });
+        try {
+            await AuditLog.create({
+                user_id: user.id,
+                action: 'LOGIN_SUCCESS',
+                table_name: 'users',
+                record_id: user.id,
+                details: `Super Admin ${user.username} logged in successfully`,
+                ip_address: req.ip || req.headers['x-forwarded-for'] || null
+            });
+        } catch (auditErr) {
+            console.error('Failed to create super-admin login audit log:', auditErr.message);
+        }
 
         // Sign Super Admin specific JWT
         const token = jwt.sign(
@@ -336,7 +340,8 @@ router.post('/institutes', async (req, res) => {
 
         // Auto-generate Login URL
         const isLocal = req.headers.host && (req.headers.host.includes('localhost') || req.headers.host.includes('127.0.0.1'));
-        const loginUrl = isLocal ? `http://localhost:5173/?tenant=${subdomain}` : `https://${subdomain}.yourdomain.com`;
+        const frontendBase = process.env.FRONTEND_URL || (isLocal ? 'http://localhost:5173' : 'https://institute-app-frontend.onrender.com');
+        const loginUrl = `${frontendBase}/?tenant=${subdomain}`;
 
         // Calculate Expiry Date based on Trial Days
         let calculatedExpiry = null;
