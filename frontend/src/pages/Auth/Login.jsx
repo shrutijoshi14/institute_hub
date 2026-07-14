@@ -18,6 +18,14 @@ const GoogleIcon = () => (
 const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const navigateToDashboard = () => {
+    const tenantSub = sessionStorage.getItem('tenantSubdomain');
+    if (tenantSub) {
+      window.location.href = `/${tenantSub}/`;
+    } else {
+      navigate('/');
+    }
+  };
 
   const getInputStyle = (value, hasLeftIcon = true, hasRightIcon = false) => {
     const baseStyle = {
@@ -179,7 +187,7 @@ const Login = () => {
       const { role, name, userId, childId, username, password, tenantSubdomain } = res.data;
 
       login({ role, name, id: userId, childId, username, password, tenantSubdomain });
-      navigate('/');
+      navigateToDashboard();
     } catch (err) {
       setError(err.response?.data?.msg || 'Authentication failed. Please check your credentials.');
     } finally {
@@ -223,7 +231,7 @@ const Login = () => {
       });
       const { role, name, userId, childId, username, password, tenantSubdomain } = res.data;
       login({ role, name, id: userId, childId, username, password, tenantSubdomain });
-      navigate('/');
+      navigateToDashboard();
     } catch (err) {
       setError(err.response?.data?.msg || 'Invalid or expired verification code.');
     } finally {
@@ -261,7 +269,7 @@ const Login = () => {
       });
       const { role, name, userId, childId, username, password } = res.data;
       login({ role, name, id: userId, childId, username, password });
-      navigate('/');
+      navigateToDashboard();
     } catch (err) {
       setError(err.response?.data?.msg || 'No account matches this Google profile for the selected role.');
     } finally {
@@ -306,7 +314,7 @@ const Login = () => {
 
             const { role, name, userId, childId, username, password } = verifyRes.data;
             login({ role, name, id: userId, childId, username, password });
-            navigate('/');
+            navigateToDashboard();
             return;
           }
         } catch (webauthnErr) {
@@ -342,7 +350,7 @@ const Login = () => {
 
       const { role, name, userId, childId, username, password } = verifyRes.data;
       login({ role, name, id: userId, childId, username, password });
-      navigate('/');
+      navigateToDashboard();
     } catch (err) {
       setError(err.response?.data?.msg || 'Biometric authentication failed or not registered.');
     } finally {

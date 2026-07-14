@@ -59,31 +59,56 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const TenantRedirect = () => {
-  const { tenantSubdomain } = useParams();
-  const pathname = window.location.pathname.toLowerCase();
-  
-  if (pathname.includes('/enquiry')) {
-    return <Navigate to={`/enquiry?tenant=${tenantSubdomain}`} replace />;
-  }
-  return <Navigate to={`/login?tenant=${tenantSubdomain}`} replace />;
-};
+const dashboardRoutes = (
+  <>
+    <Route index element={<DashboardRouter />} />
+    <Route path="register" element={<Register />} />
+    
+    {/* Admin Modules */}
+    <Route path="enquiries" element={<Enquiries />} />
+    <Route path="registrations" element={<Registrations />} />
+    <Route path="students" element={<StudentManagement />} />
+    <Route path="users" element={<UserManagement />} />
+    <Route path="faculty" element={<Faculty />} />
+    <Route path="batches" element={<Batches />} />
+    <Route path="syllabus" element={<Syllabus />} />
+    <Route path="admin/fees" element={<AdminFees />} />
+    <Route path="admin/reports" element={<AdminReports />} />
+    <Route path="admin/promotions" element={<AcademicPromotion />} />
+    <Route path="admin/archive" element={<ArchiveSystem />} />
+    <Route path="admin/storage" element={<StorageManager />} />
+    
+    {/* Global Features (Data naturally isolated inside views) */}
+    <Route path="notices" element={<Notices />} />
+    <Route path="assignments" element={<Assignments />} />
+    <Route path="settings" element={<Settings />} />
+    <Route path="support" element={<SupportCenter />} />
 
-// We dynamically render the dashboard based on role
-const DashboardRouter = () => {
-  const { role } = useAuth();
-  if (role === 'super-admin') return <SuperAdminDashboard />;
-  if (role === 'student') return <StudentDashboard />;
-  if (role === 'parent') return <ParentDashboard />;
-  if (role === 'faculty') return <TeacherDashboard />;
-  if (role === 'accountant') return <AccountantDashboard />;
-  if (role === 'receptionist') return <ReceptionistDashboard />;
-  if (role === 'librarian') return <LibrarianDashboard />;
-  if (role === 'transport-manager') return <TransportDashboard />;
-  return <Dashboard />; // Admin dashboard fallback
-};
+    {/* Role Specific Views */}
+    <Route path="student/fees" element={<StudentFees />} />
+    <Route path="student/profile" element={<StudentProfile />} />
+    
+    <Route path="admin/attendance" element={<Attendance />} />
+    <Route path="student/attendance" element={<Attendance />} />
+    <Route path="daily-tracker" element={<FacultyDailyTracker />} />
+    
+    <Route path="admin/results" element={<Results />} />
+    <Route path="student/results" element={<Results />} />
+
+    <Route path="admin/syllabus-tracker" element={<AdminSyllabusTracker />} />
+    <Route path="student/syllabus-tracker" element={<StudentSyllabusTracker />} />
+  </>
+);
 
 function App() {
+  const pathParts = window.location.pathname.split('/');
+  const firstSegment = pathParts[1] ? pathParts[1].trim() : '';
+  const tenantSub = sessionStorage.getItem('tenantSubdomain');
+  
+  const reserved = ['login', 'enquiry', 'super-admin', 'support', 'settings', 'admin', 'student'];
+  const isValidTenantSegment = firstSegment && !reserved.includes(firstSegment.toLowerCase()) && firstSegment === tenantSub;
+  const basename = isValidTenantSegment ? `/${firstSegment}` : '';
+
   React.useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       // Find open modal overlay by checking standard overlay classes or fixed containers
@@ -147,56 +172,16 @@ function App() {
 
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/super-admin/login" element={<SuperAdminLogin />} />
           <Route path="/enquiry" element={<PublicEnquiry />} />
           
-          {/* Dynamic subpath mapping for cleaner tenant URLs */}
-          <Route path="/:tenantSubdomain" element={<TenantRedirect />} />
-          <Route path="/:tenantSubdomain/login" element={<TenantRedirect />} />
-          <Route path="/:tenantSubdomain/enquiry" element={<TenantRedirect />} />
-          
           {/* Secured Application Shell */}
           <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<DashboardRouter />} />
-            <Route path="register" element={<Register />} />
-            
-            {/* Admin Modules */}
-            <Route path="enquiries" element={<Enquiries />} />
-            <Route path="registrations" element={<Registrations />} />
-            <Route path="students" element={<StudentManagement />} />
-            <Route path="users" element={<UserManagement />} />
-            <Route path="faculty" element={<Faculty />} />
-            <Route path="batches" element={<Batches />} />
-            <Route path="syllabus" element={<Syllabus />} />
-            <Route path="admin/fees" element={<AdminFees />} />
-            <Route path="admin/reports" element={<AdminReports />} />
-            <Route path="admin/promotions" element={<AcademicPromotion />} />
-            <Route path="admin/archive" element={<ArchiveSystem />} />
-            <Route path="admin/storage" element={<StorageManager />} />
-            
-            {/* Global Features (Data naturally isolated inside views) */}
-            <Route path="notices" element={<Notices />} />
-            <Route path="assignments" element={<Assignments />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="support" element={<SupportCenter />} />
-
-            {/* Role Specific Views */}
-            <Route path="student/fees" element={<StudentFees />} />
-            <Route path="student/profile" element={<StudentProfile />} />
-            
-            <Route path="admin/attendance" element={<Attendance />} />
-            <Route path="student/attendance" element={<Attendance />} />
-            <Route path="daily-tracker" element={<FacultyDailyTracker />} />
-            
-            <Route path="admin/results" element={<Results />} />
-            <Route path="student/results" element={<Results />} />
-
-            <Route path="admin/syllabus-tracker" element={<AdminSyllabusTracker />} />
-            <Route path="student/syllabus-tracker" element={<StudentSyllabusTracker />} />
+            {dashboardRoutes}
           </Route>
 
           {/* Fallback route to prevent blank pages on unmatched URLs */}
