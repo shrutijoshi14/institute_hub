@@ -307,24 +307,20 @@ const connectDB = async () => {
 
         } else if (isPostgres) {
             console.log('PostgreSQL/Supabase detected. Skipping MySQL-specific ALTER TABLE queries. Checking and adding any missing columns...');
-            try {
-                await sequelize.query(`
-                    ALTER TABLE batch_progress ADD COLUMN IF NOT EXISTS class_date DATE DEFAULT NULL
-                `);
-                console.log('Notice: batch_progress class_date column added on PostgreSQL.');
-            } catch (err) {
-                console.log('Notice: batch_progress class_date column check details on PostgreSQL:', err.message);
-            }
-
+            
             // Safe ALTER for PostgreSQL
             const addColumnPgSafely = async (table, column, definition) => {
                 try {
-                    await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${definition}`);
+                    await sequelize.query(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS ${column} ${definition}`);
                     console.log(`PostgreSQL: Column ${column} added to ${table}.`);
                 } catch (err) {
                     // Ignore
                 }
             };
+
+            await addColumnPgSafely('batch_progress', 'class_date', "DATE DEFAULT NULL");
+            
+            // Users table columns
             await addColumnPgSafely('users', 'google_id', "VARCHAR(255) UNIQUE DEFAULT NULL");
             await addColumnPgSafely('users', 'otp_code', "VARCHAR(10) DEFAULT NULL");
             await addColumnPgSafely('users', 'otp_expiry', "TIMESTAMP DEFAULT NULL");
@@ -337,10 +333,40 @@ const connectDB = async () => {
             await addColumnPgSafely('users', 'last_login_ip', "VARCHAR(255) DEFAULT NULL");
             await addColumnPgSafely('users', 'last_login_agent', "VARCHAR(255) DEFAULT NULL");
             await addColumnPgSafely('users', 'must_change_password', "BOOLEAN DEFAULT FALSE");
+            
+            // Subscriptions table columns
             await addColumnPgSafely('subscriptions', 'max_parents', "INTEGER DEFAULT -1");
             await addColumnPgSafely('subscriptions', 'max_faculty', "INTEGER DEFAULT -1");
             await addColumnPgSafely('subscriptions', 'max_storage_gb', "INTEGER DEFAULT -1");
             await addColumnPgSafely('subscriptions', 'duration_months', "INTEGER DEFAULT 12");
+
+            // Institutes table columns
+            await addColumnPgSafely('institutes', 'code', "VARCHAR(255) DEFAULT NULL");
+            await addColumnPgSafely('institutes', 'domain', "VARCHAR(255) DEFAULT NULL");
+            await addColumnPgSafely('institutes', 'plan', "VARCHAR(255) DEFAULT NULL");
+            await addColumnPgSafely('institutes', 'expiry_date', "DATE DEFAULT NULL");
+
+            // Submissions table columns
+            await addColumnPgSafely('submissions', 'marks', "INTEGER DEFAULT NULL");
+            await addColumnPgSafely('submissions', 'feedback', "VARCHAR(255) DEFAULT NULL");
+
+            // Notices table columns
+            await addColumnPgSafely('notices', 'target_board', "VARCHAR(255) DEFAULT 'All'");
+            await addColumnPgSafely('notices', 'target_exam', "VARCHAR(255) DEFAULT 'All'");
+            await addColumnPgSafely('notices', 'target_batch', "VARCHAR(255) DEFAULT 'All'");
+
+            // Fee Payments table alterations
+            try {
+                await sequelize.query(`
+                    ALTER TABLE fee_payments ALTER COLUMN payment_mode TYPE VARCHAR(255)
+                `);
+                await sequelize.query(`
+                    ALTER TABLE fee_payments ALTER COLUMN payment_mode SET DEFAULT 'Cash'
+                `);
+                console.log('PostgreSQL: fee_payments payment_mode altered successfully.');
+            } catch (err) {
+                // Ignore
+            }
         }
 
         console.log('Database synced successfully.');
