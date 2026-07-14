@@ -70,7 +70,8 @@ const getTenantSubdomain = () => {
   
   const parts = host.split('.');
   // If we have a subdomain and it's not 'www' or 'super' or 'localhost' or an IP
-  if (parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'super') {
+  // (We skip hostname subdomain extraction on shared onrender.com staging domains)
+  if (!host.includes('onrender.com') && parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'super') {
     sessionStorage.setItem('tenantSubdomain', parts[0]);
     return parts[0];
   }
