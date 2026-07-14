@@ -4,6 +4,14 @@ import './index.css'
 import App from './App.jsx'
 import axios from 'axios';
 
+// Self-Healing Cache Cleanup: Remove any stale subdomain values from previous buggy code
+try {
+  const cachedSub = sessionStorage.getItem('tenantSubdomain');
+  if (cachedSub && (cachedSub.toLowerCase().includes('onrender') || cachedSub.toLowerCase().includes('institute-hub'))) {
+    sessionStorage.removeItem('tenantSubdomain');
+  }
+} catch (e) {}
+
 // Dynamic API URL Switch Logic (Local vs Live)
 // 1. If hosted live on Render (not localhost), use VITE_API_URL.
 // 2. If running locally:
