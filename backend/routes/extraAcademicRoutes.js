@@ -14,12 +14,20 @@ const { sequelize } = require('../config/db');
 // @desc    List all leave requests with requester details
 router.get('/leaves', async (req, res) => {
     try {
+        const tenantStorage = require('../config/tenantContext');
+        const context = tenantStorage.getStore();
+        const tenantId = context ? context.tenantId : 1;
+
         const list = await sequelize.query(`
             SELECT l.*, u.name as user_name, u.role as user_role
             FROM leaves l
             JOIN users u ON l.user_id = u.id
+            WHERE l.tenant_id = :tenantId
             ORDER BY l.start_date DESC
-        `, { type: sequelize.QueryTypes.SELECT });
+        `, { 
+            replacements: { tenantId },
+            type: sequelize.QueryTypes.SELECT 
+        });
         res.json(list);
     } catch (err) {
         console.error(err);
@@ -85,12 +93,20 @@ router.put('/leaves/:id', async (req, res) => {
 // @desc    List all complaints with reporter details
 router.get('/complaints', async (req, res) => {
     try {
+        const tenantStorage = require('../config/tenantContext');
+        const context = tenantStorage.getStore();
+        const tenantId = context ? context.tenantId : 1;
+
         const list = await sequelize.query(`
             SELECT c.*, u.name as reporter_name, u.role as reporter_role
             FROM complaints c
             JOIN users u ON c.user_id = u.id
+            WHERE c.tenant_id = :tenantId
             ORDER BY c.created_at DESC
-        `, { type: sequelize.QueryTypes.SELECT });
+        `, { 
+            replacements: { tenantId },
+            type: sequelize.QueryTypes.SELECT 
+        });
         res.json(list);
     } catch (err) {
         console.error(err);

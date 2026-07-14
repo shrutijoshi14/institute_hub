@@ -13,8 +13,12 @@ const { getStandardFee, getStandardCourseTitle, getStandardFeeSqlFragment, getSt
 // @desc    Get comprehensive revenue & fee stats for admin
 router.get('/stats', async (req, res) => {
     try {
+        const tenantStorage = require('../config/tenantContext');
+        const context = tenantStorage.getStore();
+        const tenantId = context ? context.tenantId : 1;
+
         // Sum of all payments
-        const totalRevenue = await FeePayment.sum('amount_paid') || 0;
+        const totalRevenue = await FeePayment.sum('amount_paid', { where: { tenant_id: tenantId } }) || 0;
         
         // Revenue by month (Dialect-aware query for MySQL & PostgreSQL compatibility)
         const isPostgres = sequelize.getDialect() === 'postgres';
@@ -22,12 +26,22 @@ router.get('/stats', async (req, res) => {
             ? `
                 SELECT TRIM(to_char(payment_date, 'Month')) as month, SUM(amount_paid) as total 
                 FROM fee_payments 
+                WHERE tenant_id = :tenantId
                 GROUP BY month, EXTRACT(MONTH FROM payment_date) 
                 ORDER BY EXTRACT(MONTH FROM payment_date)
               `
-            : "SELECT MONTHNAME(payment_date) as month, SUM(amount_paid) as total FROM fee_payments GROUP BY month ORDER BY FIELD(month, 'January','February','March','April','May','June','July','August','September','October','November','December')";
+            : `
+                SELECT MONTHNAME(payment_date) as month, SUM(amount_paid) as total 
+                FROM fee_payments 
+                WHERE tenant_id = :tenantId
+                GROUP BY month 
+                ORDER BY FIELD(month, 'January','February','March','April','May','June','July','August','September','October','November','December')
+              `;
         
-        const monthlyStats = await sequelize.query(monthlyQuery, { type: sequelize.QueryTypes.SELECT });
+        const monthlyStats = await sequelize.query(monthlyQuery, { 
+            replacements: { tenantId },
+            type: sequelize.QueryTypes.SELECT 
+        });
 
         // Pending Fees Calculation
         // Formula: Sum of fees for all enrollments (with fallback) - total payments
@@ -42,14 +56,18 @@ router.get('/stats', async (req, res) => {
              FROM enrollments e 
              LEFT JOIN courses c ON e.course_id = c.id
              LEFT JOIN users u ON e.student_id = u.id
-             LEFT JOIN students s ON e.student_id = s.user_id`,
-            { type: sequelize.QueryTypes.SELECT }
+             LEFT JOIN students s ON e.student_id = s.user_id
+             WHERE e.tenant_id = :tenantId`,
+            { 
+                replacements: { tenantId },
+                type: sequelize.QueryTypes.SELECT 
+            }
         );
         const expected = totalExpected[0].total || 0;
         const totalPending = expected - totalRevenue;
 
         // Total registered students
-        const totalStudents = await User.count({ where: { role: 'student' } });
+        const totalStudents = await User.count({ where: { role: 'student', tenant_id: tenantId } });
 
         res.json({ 
             totalRevenue, 
@@ -271,6 +289,10 @@ router.post('/pay', async (req, res) => {
 // @desc    Get all students and their fee summaries for Admin
 router.get('/all-pending', async (req, res) => {
     try {
+        const tenantStorage = require('../config/tenantContext');
+        const context = tenantStorage.getStore();
+        const tenantId = context ? context.tenantId : 1;
+
         const titleSql = getStandardCourseTitleSqlFragment('s.standard', 'e.batch_id');
         const feeSql = getStandardFeeSqlFragment('s.standard', 'e.batch_id');
         const isPostgres = sequelize.getDialect() === 'postgres';
@@ -288,14 +310,14 @@ router.get('/all-pending', async (req, res) => {
                 COALESCE(s.standard, 'Unassigned') as standard,
                 COALESCE(
                     c.board, 
-                    (SELECT board FROM courses WHERE class_range = s.standard AND fees > 0 ORDER BY fees DESC LIMIT 1),
-                    (SELECT board FROM courses WHERE class_range = (SELECT standard FROM batches WHERE id = e.batch_id) AND fees > 0 ORDER BY fees DESC LIMIT 1),
+                    (SELECT board FROM courses WHERE class_range = s.standard AND fees > 0 AND tenant_id = :tenantId ORDER BY fees DESC LIMIT 1),
+                    (SELECT board FROM courses WHERE class_range = (SELECT standard FROM batches WHERE id = e.batch_id AND tenant_id = :tenantId) AND fees > 0 AND tenant_id = :tenantId ORDER BY fees DESC LIMIT 1),
                     'N/A'
                 ) as board,
                 COALESCE(
                     c.exam_target, 
-                    (SELECT exam_target FROM courses WHERE class_range = s.standard AND fees > 0 ORDER BY fees DESC LIMIT 1),
-                    (SELECT exam_target FROM courses WHERE class_range = (SELECT standard FROM batches WHERE id = e.batch_id) AND fees > 0 ORDER BY fees DESC LIMIT 1),
+                    (SELECT exam_target FROM courses WHERE class_range = s.standard AND fees > 0 AND tenant_id = :tenantId ORDER BY fees DESC LIMIT 1),
+                    (SELECT exam_target FROM courses WHERE class_range = (SELECT standard FROM batches WHERE id = e.batch_id AND tenant_id = :tenantId) AND fees > 0 AND tenant_id = :tenantId ORDER BY fees DESC LIMIT 1),
                     'None'
                 ) as exam_target,
                 e.batch_id as batch_id,
@@ -318,10 +340,13 @@ router.get('/all-pending', async (req, res) => {
             LEFT JOIN enrollments e ON u.id = e.student_id
             LEFT JOIN courses c ON e.course_id = c.id
             LEFT JOIN fee_payments fp ON u.id = fp.student_id
-            WHERE u.role = 'student'
+            WHERE u.role = 'student' AND u.tenant_id = :tenantId
             GROUP BY u.id, u.name, u.phone, c.title, s.standard, c.board, c.exam_target, e.batch_id, c.fees, e.fee_plan, e.total_installments, e.installment_amount
         `;
-        const data = await sequelize.query(query, { type: sequelize.QueryTypes.SELECT });
+        const data = await sequelize.query(query, { 
+            replacements: { tenantId },
+            type: sequelize.QueryTypes.SELECT 
+        });
         
         // Map to format AdminFees expects: { id, name, course, totalFee, paid, pending, status, phone }
         const formattedData = data.map((row, index) => ({
