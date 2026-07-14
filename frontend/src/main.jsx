@@ -118,7 +118,20 @@ axios.interceptors.request.use(
           subdomain.toLowerCase().includes(parsed.tenantSubdomain.toLowerCase()) ||
           parsed.tenantSubdomain.toLowerCase().includes(subdomain.toLowerCase())
         );
+        
+        console.log('🔄 Tenant Interceptor Check:', {
+          isDevHost,
+          role: parsed.role,
+          subdomain,
+          tenantSubdomain: parsed.tenantSubdomain,
+          matchesSubdomain
+        });
+        
         if (isDevHost && parsed.role !== 'super-admin' && subdomain && parsed.tenantSubdomain && !matchesSubdomain) {
+          console.warn('⚠️ Tenant mismatch detected! Logging out...', {
+            subdomain,
+            userTenant: parsed.tenantSubdomain
+          });
           sessionStorage.clear();
           localStorage.removeItem('token');
           window.location.reload();
