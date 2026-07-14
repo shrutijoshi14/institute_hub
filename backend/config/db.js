@@ -95,7 +95,7 @@ const injectTenantScope = (options, tenantId) => {
             options.where.tenant_id = tenantId;
         }
         if (model.rawAttributes.is_archived && options.where.is_archived === undefined && !options.includeArchived) {
-            options.where.is_archived = 0;
+            options.where.is_archived = false;
         }
     }
     if (options.include) {
@@ -156,6 +156,22 @@ const connectDB = async () => {
         
         // Run dialect-specific migrations/adjustments
         const isMySQL = sequelize.getDialect() === 'mysql';
+        const isPostgres = sequelize.getDialect() === 'postgres' || sequelize.getDialect() === 'postgresql';
+
+        const tenantTables = [
+            'users', 'students', 'batches', 'faculty', 'batch_faculty',
+            'courses', 'attendance', 'results', 'fee_payments', 'assignments',
+            'submissions', 'notices', 'enquiries', 'registrations', 'batch_progress',
+            'audit_logs', 'complaints', 'buses', 'routes', 'transport_assignments',
+            'settings', 'academic_years', 'feature_flags', 'visitors', 'toppers',
+            'storage_files', 'salary', 'rooms', 'roles', 'permissions', 'parents',
+            'library_books', 'leaves', 'issued_books', 'hostel', 'expenses', 'events',
+            'enrollments', 'chats', 'certificates', 'branches'
+        ];
+        
+        const archiveTables = [
+            'attendance', 'results', 'fee_payments', 'assignments', 'batches', 'submissions'
+        ];
         
         if (isMySQL) {
             // Safely drop outdated single-column unique keys if they exist in users table
@@ -305,6 +321,13 @@ const connectDB = async () => {
             await addColumnSafely('subscriptions', 'max_storage_gb', "INT DEFAULT -1");
             await addColumnSafely('subscriptions', 'duration_months', "INT DEFAULT 12");
 
+            for (const table of tenantTables) {
+                await addColumnSafely(table, 'tenant_id', 'INT NOT NULL DEFAULT 1');
+            }
+            for (const table of archiveTables) {
+                await addColumnSafely(table, 'is_archived', 'TINYINT(1) NOT NULL DEFAULT 0');
+            }
+
         } else if (isPostgres) {
             console.log('PostgreSQL/Supabase detected. Skipping MySQL-specific ALTER TABLE queries. Checking and adding any missing columns...');
             
@@ -366,6 +389,13 @@ const connectDB = async () => {
                 console.log('PostgreSQL: fee_payments payment_mode altered successfully.');
             } catch (err) {
                 // Ignore
+            }
+
+            for (const table of tenantTables) {
+                await addColumnPgSafely(table, 'tenant_id', 'INTEGER NOT NULL DEFAULT 1');
+            }
+            for (const table of archiveTables) {
+                await addColumnPgSafely(table, 'is_archived', 'BOOLEAN NOT NULL DEFAULT FALSE');
             }
         }
 
