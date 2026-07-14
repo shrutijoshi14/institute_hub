@@ -79,7 +79,7 @@ const Enquiries = () => {
   });
 
   const [convertData, setConvertData] = useState({
-    password: 'student123',
+    password: 'Student@123',
     batch_id: '',
     fee_plan: 'One-time',
     installments: 1,
