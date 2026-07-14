@@ -144,6 +144,11 @@ function App() {
           <Route path="/super-admin/login" element={<SuperAdminLogin />} />
           <Route path="/enquiry" element={<PublicEnquiry />} />
           
+          {/* Dynamic subpath mapping for cleaner tenant URLs */}
+          <Route path="/:tenantSubdomain" element={<Navigate to="/login" replace />} />
+          <Route path="/:tenantSubdomain/login" element={<Login />} />
+          <Route path="/:tenantSubdomain/enquiry" element={<PublicEnquiry />} />
+          
           {/* Secured Application Shell */}
           <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route index element={<DashboardRouter />} />
