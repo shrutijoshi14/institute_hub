@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import DashboardLayout from './components/DashboardLayout';
 import Dashboard from './pages/Dashboard';
@@ -57,6 +57,16 @@ const ProtectedRoute = ({ children }) => {
     return <ForceChangePassword />;
   }
   return children;
+};
+
+const TenantRedirect = () => {
+  const { tenantSubdomain } = useParams();
+  const pathname = window.location.pathname.toLowerCase();
+  
+  if (pathname.includes('/enquiry')) {
+    return <Navigate to={`/enquiry?tenant=${tenantSubdomain}`} replace />;
+  }
+  return <Navigate to={`/login?tenant=${tenantSubdomain}`} replace />;
 };
 
 // We dynamically render the dashboard based on role
@@ -145,9 +155,9 @@ function App() {
           <Route path="/enquiry" element={<PublicEnquiry />} />
           
           {/* Dynamic subpath mapping for cleaner tenant URLs */}
-          <Route path="/:tenantSubdomain" element={<Navigate to="/login" replace />} />
-          <Route path="/:tenantSubdomain/login" element={<Login />} />
-          <Route path="/:tenantSubdomain/enquiry" element={<PublicEnquiry />} />
+          <Route path="/:tenantSubdomain" element={<TenantRedirect />} />
+          <Route path="/:tenantSubdomain/login" element={<TenantRedirect />} />
+          <Route path="/:tenantSubdomain/enquiry" element={<TenantRedirect />} />
           
           {/* Secured Application Shell */}
           <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
