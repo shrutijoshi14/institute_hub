@@ -333,12 +333,13 @@ router.get('/users', async (req, res) => {
         let query = req.query.role ? { role: req.query.role } : {};
 
         const Student = require('../models/Student');
+        const Batch = require('../models/Batch');
         const users = await User.findAll({ 
             where: query,
             include: req.query.role === 'student' ? [
                 {
                     model: Enrollment,
-                    include: [Course]
+                    include: [Course, Batch]
                 },
                 {
                     model: Student
@@ -354,8 +355,15 @@ router.get('/users', async (req, res) => {
                 userJson.dob = userJson.Student.dob;
                 userJson.blood_group = userJson.Student.blood_group;
             }
-            if (userJson.Enrollments && userJson.Enrollments[0] && userJson.Enrollments[0].Course) {
-                userJson.board = userJson.Enrollments[0].Course.board;
+            if (userJson.Enrollments && userJson.Enrollments[0]) {
+                const enrollment = userJson.Enrollments[0];
+                if (enrollment.Course && enrollment.Course.board) {
+                    userJson.board = enrollment.Course.board;
+                } else if (enrollment.Batch && enrollment.Batch.board) {
+                    userJson.board = enrollment.Batch.board;
+                } else {
+                    userJson.board = 'Unassigned';
+                }
             } else {
                 userJson.board = 'Unassigned';
             }
