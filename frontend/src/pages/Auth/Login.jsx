@@ -79,9 +79,6 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [settings, setSettings] = useState({ schoolName: 'Institute Hub', logoUrl: '', iconName: 'GraduationCap' });
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const [showMockGoogleModal, setShowMockGoogleModal] = useState(false);
-  const [mockGoogleEmail, setMockGoogleEmail] = useState('');
-  const [mockGoogleError, setMockGoogleError] = useState('');
   const [googleSdkLoaded, setGoogleSdkLoaded] = useState(!!window.google);
 
   useEffect(() => {
@@ -272,50 +269,9 @@ const Login = () => {
     }
   };
 
-  // 4. Google Login Flow (React Inline Mock Modal Trigger to prevent external file scanner blocks)
+  // 4. Google Login Flow
   const handleGoogleLogin = () => {
-    setError('');
-    setSuccessMsg('');
-    setMockGoogleEmail('');
-    setMockGoogleError('');
-    setShowMockGoogleModal(true);
-  };
-
-  const handleMockGoogleSubmit = (e) => {
-    e.preventDefault();
-    setMockGoogleError('');
-
-    const emailVal = mockGoogleEmail.trim();
-    if (!emailVal) {
-      setMockGoogleError('Enter an email or phone number');
-      return;
-    }
-
-    const isEmail = emailVal.includes('@');
-    if (isEmail && !/\S+@\S+\.\S+/.test(emailVal)) {
-      setMockGoogleError('Enter a valid email address');
-      return;
-    }
-
-    setLoading(true);
-    axios.post('http://localhost:5000/api/auth/google-login', {
-      email: emailVal,
-      google_id: `google_mock_${Date.now()}`,
-      role: formData.role,
-      name: emailVal.split('@')[0]
-    })
-      .then(res => {
-        const { role, name, userId, childId, username, password } = res.data;
-        login({ role, name, id: userId, childId, username, password });
-        setShowMockGoogleModal(false);
-        navigate('/');
-      })
-      .catch(err => {
-        setMockGoogleError(err.response?.data?.msg || 'No account matches this Google profile for the selected role.');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    setError('Google Sign-in is initializing. Please try again in a moment or use your credentials.');
   };
 
   // 5. Biometric WebAuthn Login
@@ -902,113 +858,6 @@ const Login = () => {
           </div>
         </div>
       </div>
-
-      {/* Mock Google Login Overlay Modal */}
-      {showMockGoogleModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(0, 0, 0, 0.45)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 9999,
-          backdropFilter: 'blur(4px)'
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: '420px',
-            maxHeight: '85vh',
-            overflowY: 'auto',
-            backgroundColor: '#ffffff',
-            borderRadius: '8px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-            padding: '36px 40px',
-            border: '1px solid #dadce0',
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            fontFamily: 'Roboto, sans-serif'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-              <svg viewBox="0 0 74 24" width="74" height="24" xmlns="http://www.w3.org/2000/svg">
-                <path fill="#ea4335" d="M68.12 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z" />
-                <path fill="#fbbc05" d="M59.28 11.58c-2.3 0-4.18 1.83-4.18 4.12 0 2.27 1.88 4.12 4.18 4.12 2.27 0 4.15-1.85 4.15-4.12 0-2.29-1.88-4.12-4.15-4.12zm0 6.6c-1.25 0-2.28-1.03-2.28-2.48 0-1.47 1.03-2.5 2.28-2.5s2.26 1.03 2.26 2.5c0 1.45-1.01 2.48-2.26 2.48z" />
-                <path fill="#4285f4" d="M50.15 11.58c-2.22 0-4.18 1.9-4.18 4.12 0 2.25 1.93 4.12 4.18 4.12 1.34 0 2.25-.54 2.76-1.12v.89c0 1.73-.93 2.66-2.42 2.66-1.22 0-1.98-.88-2.26-1.61l-1.99.83c.58 1.39 2.11 2.98 4.25 2.98 2.46 0 4.54-1.45 4.54-4.29V11.83h-1.89v.87c-.52-.57-1.43-1.12-2.99-1.12zm-.23 6.6c-1.25 0-2.22-1.06-2.22-2.5 0-1.45.97-2.48 2.22-2.48 1.22 0 2.19 1.03 2.19 2.48 0 1.43-.97 2.5-2.19 2.5z" />
-                <path fill="#34a853" d="M43.07 1.05h1.96V23.4h-1.96z" />
-                <path fill="#ea4335" d="M37.91 18.23c-1.07 0-2.02-.57-2.53-1.49l6.83-2.83-.24-.59c-.41-1.1-1.63-3.32-4.32-3.32-2.66 0-4.88 2.1-4.88 4.12 0 2.27 2.19 4.12 4.9 4.12 2.19 0 3.46-1.34 3.99-2.11l-1.63-1.09c-.54.79-1.27 1.31-2.12 1.31zm-.19-5.11c.85 0 1.57.44 1.8 1.07L35.08 16.03c0-1.66 1.18-2.91 2.64-2.91z" />
-                <path fill="#4285f4" d="M10.15 12.02V9.93h9.61c.09.53.15 1.12.15 1.8 0 2.21-.6 4.94-2.57 6.91-1.93 1.99-4.4 3.09-7.2 3.09C4.54 21.73 0 16.85 0 10.87S4.54 0 10.15 0c3.12 0 5.37 1.22 7.03 2.8l-1.98 1.98c-1.2-1.12-2.76-1.98-5.05-1.98-4.04 0-7.27 3.29-7.27 7.35s3.23 7.35 7.27 7.35c2.59 0 4.07-1.05 5-2.04.77-.77 1.25-1.89 1.4-3.44H10.15z" />
-              </svg>
-            </div>
-
-            <h2 style={{ fontSize: '24px', fontWeight: 400, color: '#202124', textAlign: 'center', marginBottom: '8px' }}>Sign in</h2>
-            <p style={{ fontSize: '16px', color: '#202124', textAlign: 'center', marginBottom: '24px' }}>to continue to Ambition Tutorials</p>
-
-            <form onSubmit={handleMockGoogleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ position: 'relative', width: '100%' }}>
-                <input
-                  type="text"
-                  value={mockGoogleEmail}
-                  onChange={(e) => setMockGoogleEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '16px',
-                    border: mockGoogleError ? '2px solid #d93025' : '1px solid #dadce0',
-                    borderRadius: '4px',
-                    fontSize: '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Email or phone"
-                  required
-                />
-              </div>
-
-              {mockGoogleError && (
-                <div style={{ color: '#d93025', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AlertCircle size={16} />
-                  <span>{mockGoogleError}</span>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowMockGoogleModal(false)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#1a73e8',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    backgroundColor: '#1a73e8',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '10px 24px',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Next
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
