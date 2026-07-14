@@ -1101,7 +1101,7 @@ const SuperAdminDashboard = () => {
                         <td>
                           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                             <code style={{ fontSize: "0.8rem", color: "var(--primary)" }}>
-                              {portalUrl.replace('https://', '').replace('http://', '')}
+                              {portalUrl}
                             </code>
                             <button
                               type="button"

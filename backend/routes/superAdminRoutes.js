@@ -10,6 +10,15 @@ const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const { sequelize } = require('../config/db');
 
+// Helper to clean custom domain inputs and strip any user protocol typos (e.g. https//)
+const sanitizeCustomDomain = (domain) => {
+    if (!domain) return null;
+    let clean = domain.trim();
+    clean = clean.replace(/^(https?:\/\/|https?:\/|https?\/\/|https?)/i, '');
+    clean = clean.replace(/^[:\/]+/, '');
+    return clean || null;
+};
+
 // Helper to calculate folder size recursively
 function getDirSize(dirPath) {
     let size = 0;
@@ -398,13 +407,14 @@ router.post('/institutes', async (req, res) => {
             }
         }
 
-        // Create tenant
+        // Create tenant with sanitized custom domain
+        const cleanCustomDomain = sanitizeCustomDomain(custom_domain);
         const newInstitute = await Institute.create({
             name,
             code: code || subdomain.toUpperCase(),
             subdomain,
-            custom_domain: custom_domain === '' ? null : (custom_domain || null),
-            domain: loginUrl, // store generated URL in domain column
+            custom_domain: cleanCustomDomain,
+            domain: cleanCustomDomain ? `https://${cleanCustomDomain}` : loginUrl,
             plan: activePlanName,
             status: status || 'active',
             subscription_id: subId,
@@ -489,8 +499,21 @@ router.put('/institutes/:id', async (req, res) => {
         institute.name = name !== undefined ? name : institute.name;
         institute.code = code !== undefined ? code : institute.code;
         institute.subdomain = subdomain !== undefined ? subdomain : institute.subdomain;
-        institute.custom_domain = custom_domain === '' ? null : (custom_domain !== undefined ? custom_domain : institute.custom_domain);
-        institute.domain = domain !== undefined ? domain : institute.domain;
+        
+        const cleanCustomDomain = custom_domain !== undefined ? sanitizeCustomDomain(custom_domain) : undefined;
+        if (cleanCustomDomain !== undefined) {
+            institute.custom_domain = cleanCustomDomain;
+            if (cleanCustomDomain) {
+                institute.domain = `https://${cleanCustomDomain}`;
+            } else {
+                // If custom_domain was cleared, revert to dynamic subdomain-based link
+                const isLocal = req.headers.host && (req.headers.host.includes('localhost') || req.headers.host.includes('127.0.0.1'));
+                const frontendBase = process.env.FRONTEND_URL || (isLocal ? 'http://localhost:5173' : 'https://institute-hub-2.onrender.com');
+                institute.domain = `${frontendBase}/${institute.subdomain}`;
+            }
+        } else if (domain !== undefined) {
+            institute.domain = domain;
+        }
         institute.plan = plan !== undefined ? plan : institute.plan;
         institute.expiry_date = expiry_date !== undefined ? expiry_date : institute.expiry_date;
         institute.status = status !== undefined ? status : institute.status;

@@ -834,6 +834,42 @@ const connectDB = async () => {
             console.error('Failed to verify/create default Super Admin:', superAdminErr.message);
         }
 
+        // Database Cleanup: Automatically clean up any existing corrupted custom_domains/domains
+        try {
+            const Institute = require('../models/Institute');
+            const insts = await Institute.findAll({ bypassTenant: true });
+            for (const inst of insts) {
+                let changed = false;
+                if (inst.custom_domain) {
+                    let clean = inst.custom_domain.trim();
+                    if (clean.includes('https//') || clean.includes('https://') || clean.includes('http://') || clean.includes('http:/') || clean.includes('https:/')) {
+                        clean = clean.replace(/^(https?:\/\/|https?:\/|https?\/\/|https?)/i, '');
+                        clean = clean.replace(/^[:\/]+/, '');
+                        inst.custom_domain = clean;
+                        changed = true;
+                    }
+                }
+                if (inst.domain) {
+                    let cleanDomain = inst.domain.trim();
+                    if (cleanDomain.includes('https//') || cleanDomain.includes('https://https//') || cleanDomain.includes('https://https:/')) {
+                        // Strip back to protocol-less domain and re-apply clean https://
+                        let parts = cleanDomain.split('/');
+                        let lastPart = parts[parts.length - 1]; // e.g. ambition.in
+                        lastPart = lastPart.replace(/^(https?:\/\/|https?:\/|https?\/\/|https?)/i, '');
+                        lastPart = lastPart.replace(/^[:\/]+/, '');
+                        inst.domain = `https://${lastPart}`;
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    await inst.save();
+                    console.log(`Database Cleanup: Sanitized custom domain/domain for ${inst.name}`);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to run startup database cleanup for custom domains:', err.message);
+        }
+
     } catch (error) {
         console.error('Unable to connect to the database:', error);
         process.exit(1);
