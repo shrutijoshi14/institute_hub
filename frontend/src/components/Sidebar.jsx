@@ -140,7 +140,7 @@ const Sidebar = ({ isOpen, settings, onNavItemClick }) => {
 
         {['admin', 'super-admin'].includes(role) && (
           <NavLink to={`${prefix}/admin/storage`} className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}>
-            <HardDrive size={20} style={{ flexShrink: 0 }} />
+            <LucideIcons.HardDrive size={20} style={{ flexShrink: 0 }} />
             <span className="sidebar-text">Storage Manager</span>
           </NavLink>
         )}
