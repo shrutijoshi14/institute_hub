@@ -90,6 +90,8 @@ const getTenantSubdomain = () => {
   
   return null;
 };
+// Run getTenantSubdomain on initial page load to resolve and cache the tenant subdomain instantly
+getTenantSubdomain();
 
 // Global Axios Request Interceptor for Dynamic API URL Routing
 axios.interceptors.request.use(
