@@ -158,23 +158,35 @@ const SuperAdminDashboard = () => {
 
   const fetchData = async () => {
     try {
-      const statsRes = await axios.get('http://localhost:5000/api/super-admin/stats');
-      const instRes = await axios.get('http://localhost:5000/api/super-admin/institutes');
-      const subRes = await axios.get('http://localhost:5000/api/super-admin/subscriptions');
-      const logsRes = await axios.get('http://localhost:5000/api/super-admin/audit-logs');
-      const sylRes = await axios.get('http://localhost:5000/api/super-admin/global-syllabus');
-      const annRes = await axios.get('http://localhost:5000/api/super-admin/announcements');
-      const analyticsRes = await axios.get('http://localhost:5000/api/super-admin/analytics');
+      axios.get('http://localhost:5000/api/super-admin/stats')
+        .then(res => setStats(res.data))
+        .catch(err => console.error('Stats fetch error:', err));
 
-      setStats(statsRes.data);
-      setInstitutes(instRes.data);
-      setSubscriptions(subRes.data);
-      setAuditLogs(logsRes.data);
-      setSyllabusData(sylRes.data);
-      setAnnouncements(annRes.data);
-      setAnalytics(analyticsRes.data);
+      axios.get('http://localhost:5000/api/super-admin/institutes')
+        .then(res => setInstitutes(res.data))
+        .catch(err => console.error('Institutes fetch error:', err));
+
+      axios.get('http://localhost:5000/api/super-admin/subscriptions')
+        .then(res => setSubscriptions(res.data))
+        .catch(err => console.error('Subscriptions fetch error:', err));
+
+      axios.get('http://localhost:5000/api/super-admin/audit-logs')
+        .then(res => setAuditLogs(res.data))
+        .catch(err => console.error('Audit logs fetch error:', err));
+
+      axios.get('http://localhost:5000/api/super-admin/global-syllabus')
+        .then(res => setSyllabusData(res.data))
+        .catch(err => console.error('Syllabus fetch error:', err));
+
+      axios.get('http://localhost:5000/api/super-admin/announcements')
+        .then(res => setAnnouncements(res.data))
+        .catch(err => console.error('Announcements fetch error:', err));
+
+      axios.get('http://localhost:5000/api/super-admin/analytics')
+        .then(res => setAnalytics(res.data))
+        .catch(err => console.error('Analytics fetch error:', err));
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('Error initializing data fetch:', err);
     }
   };
 
