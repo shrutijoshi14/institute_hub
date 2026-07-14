@@ -331,10 +331,10 @@ router.post('/institutes', async (req, res) => {
 
         if (adminPassword) {
             const validatePasswordStrength = (pass) => {
-                return pass.length >= 8 && /[A-Z]/.test(pass) && /[a-z]/.test(pass) && /[0-9]/.test(pass) && /[^A-Za-z0-9]/.test(pass);
+                return pass.length >= 8;
             };
             if (!validatePasswordStrength(adminPassword)) {
-                return res.status(400).json({ msg: 'Administrator password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character.' });
+                return res.status(400).json({ msg: 'Administrator password must be at least 8 characters long.' });
             }
         }
 

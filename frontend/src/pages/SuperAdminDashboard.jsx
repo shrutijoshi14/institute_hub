@@ -982,7 +982,7 @@ const SuperAdminDashboard = () => {
                     value={newInst.adminPassword}
                     onChange={(e) => setNewInst({ ...newInst, adminPassword: e.target.value })}
                     style={{ width: "100%", padding: "0.75rem 2.5rem 0.75rem 0.75rem", borderRadius: "12px", border: "1px solid var(--border-color)" }}
-                    placeholder="Min 6 characters"
+                    placeholder="Min 8 characters"
                     required
                   />
                   <button 
