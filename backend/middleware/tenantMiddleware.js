@@ -8,8 +8,14 @@ module.exports = async (req, res, next) => {
 
         // If subdomain is passed but not tenantId, lookup the tenant ID from the database
         if (!tenantId && subdomain) {
+            const { Op } = require('sequelize');
             const institute = await Institute.findOne({
-                where: { subdomain },
+                where: {
+                    [Op.or]: [
+                        { subdomain: subdomain },
+                        { custom_domain: subdomain }
+                    ]
+                },
                 bypassTenant: true // Bypass scoping for this query since we are doing tenant lookup
             });
             if (institute) {

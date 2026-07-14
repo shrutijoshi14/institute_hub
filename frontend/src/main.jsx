@@ -53,8 +53,16 @@ const getTenantSubdomain = () => {
     }
   }
 
-  // 3. Check hostname (for production subdomain, e.g. ambition.yourdomain.com)
+  // 3. Check hostname (for custom domain or production subdomain)
   const host = window.location.hostname;
+  const isDevHost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('onrender.com');
+  
+  if (!isDevHost) {
+    // If it's a custom domain, return the whole hostname (e.g. ambition.in)
+    sessionStorage.setItem('tenantSubdomain', host);
+    return host;
+  }
+  
   const parts = host.split('.');
   // If we have a subdomain and it's not 'www' or 'super' or 'localhost' or an IP
   if (parts.length > 2 && parts[0] !== 'www' && parts[0] !== 'super') {
