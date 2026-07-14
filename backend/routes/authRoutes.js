@@ -332,16 +332,32 @@ router.get('/users', async (req, res) => {
     try {
         let query = req.query.role ? { role: req.query.role } : {};
 
+        const Student = require('../models/Student');
         const users = await User.findAll({ 
             where: query,
             include: req.query.role === 'student' ? [
                 {
                     model: Enrollment,
                     include: [Course]
+                },
+                {
+                    model: Student
                 }
             ] : []
         });
-        res.json(users);
+
+        // Map Student profile attributes to top level for frontend backwards compatibility
+        const mappedUsers = users.map(user => {
+            const userJson = user.toJSON();
+            if (userJson.Student) {
+                userJson.standard = userJson.Student.standard;
+                userJson.dob = userJson.Student.dob;
+                userJson.blood_group = userJson.Student.blood_group;
+            }
+            return userJson;
+        });
+
+        res.json(mappedUsers);
     } catch (err) {
         console.error(err);
         res.status(500).send('Server Error');
