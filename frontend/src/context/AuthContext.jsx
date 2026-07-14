@@ -29,6 +29,9 @@ export const AuthProvider = ({ children }) => {
       mustChangePassword: !!userData.mustChangePassword
     };
     sessionStorage.setItem('user', JSON.stringify(userObj));
+    if (userData.tenantSubdomain) {
+      sessionStorage.setItem('tenantSubdomain', userData.tenantSubdomain);
+    }
     setUser(userObj);
   };
 
