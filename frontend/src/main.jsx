@@ -105,6 +105,16 @@ axios.interceptors.request.use(
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
+        
+        // Crossover Protection: If logged-in user's tenant subdomain doesn't match the current URL subdomain, force clear session
+        // (Only for non-super-admin users, so super-admin can manage all tenants without logging out)
+        if (parsed.role !== 'super-admin' && subdomain && parsed.tenantSubdomain && parsed.tenantSubdomain.toLowerCase() !== subdomain.toLowerCase()) {
+          sessionStorage.clear();
+          localStorage.removeItem('token');
+          window.location.reload();
+          return config;
+        }
+
         if (parsed.id) {
           config.headers['x-user-id'] = parsed.id;
         }

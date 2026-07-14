@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }) => {
       childId: userData.childId || null,
       children: userData.children || [],
       token: userData.token || null,
+      tenantSubdomain: userData.tenantSubdomain || null,
       mustChangePassword: !!userData.mustChangePassword
     };
     sessionStorage.setItem('user', JSON.stringify(userObj));
