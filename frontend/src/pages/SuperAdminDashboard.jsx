@@ -1092,6 +1092,10 @@ const SuperAdminDashboard = () => {
                 <tbody>
                   {paginatedInstitutes.map(inst => {
                     const portalUrl = getPortalUrl(inst);
+                    const hostname = window.location.hostname;
+                    const isLocal = hostname.includes('localhost') || hostname.includes('127.0.0.1');
+                    const frontendBase = isLocal ? 'http://localhost:5173' : window.location.origin;
+                    const stagingUrl = `${frontendBase}/${inst.subdomain}`;
                     return (
                       <tr key={inst.id}>
                         <td>
@@ -1099,27 +1103,51 @@ const SuperAdminDashboard = () => {
                           <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Code: {inst.code || "N/A"}</div>
                         </td>
                         <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            <code style={{ fontSize: "0.8rem", color: "var(--primary)" }}>
-                              {portalUrl}
-                            </code>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyUrl(portalUrl)}
-                              style={{ background: "none", border: "none", cursor: "pointer", display: "flex", color: "#9CA3AF" }}
-                              title="Copy URL"
-                            >
-                              <Copy size={14} />
-                            </button>
-                            <a
-                              href={portalUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ display: "flex", color: "#9CA3AF" }}
-                              title="Open Portal"
-                            >
-                              <ExternalLink size={14} />
-                            </a>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                            {inst.custom_domain && (
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <span style={{ fontSize: "0.7rem", fontWeight: "bold", color: "var(--text-secondary)", minWidth: "55px" }}>Domain:</span>
+                                <code style={{ fontSize: "0.8rem", color: "var(--primary)" }}>{portalUrl}</code>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyUrl(portalUrl)}
+                                  style={{ background: "none", border: "none", cursor: "pointer", display: "flex", color: "#9CA3AF" }}
+                                  title="Copy Domain"
+                                >
+                                  <Copy size={12} />
+                                </button>
+                                <a
+                                  href={portalUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ display: "flex", color: "#9CA3AF" }}
+                                  title="Open Domain"
+                                >
+                                  <ExternalLink size={12} />
+                                </a>
+                              </div>
+                            )}
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                              <span style={{ fontSize: "0.7rem", fontWeight: "bold", color: "var(--text-secondary)", minWidth: "55px" }}>Staging:</span>
+                              <code style={{ fontSize: "0.8rem", color: "#0369A1" }}>{stagingUrl}</code>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyUrl(stagingUrl)}
+                                style={{ background: "none", border: "none", cursor: "pointer", display: "flex", color: "#9CA3AF" }}
+                                title="Copy Staging URL"
+                              >
+                                <Copy size={12} />
+                              </button>
+                              <a
+                                href={stagingUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ display: "flex", color: "#9CA3AF" }}
+                                title="Open Staging URL"
+                              >
+                                <ExternalLink size={12} />
+                              </a>
+                            </div>
                           </div>
                         </td>
                         <td>
@@ -2703,7 +2731,14 @@ const SuperAdminDashboard = () => {
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
                   <strong style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase' }}>Institute URL</strong>
-                  <code style={{ color: '#0369A1' }}>{getPortalUrl(viewingInst)}</code>
+                  {viewingInst.custom_domain ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.25rem' }}>
+                      <div><span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Custom Domain:</span> <code style={{ color: '#0369A1' }}>{getPortalUrl(viewingInst)}</code></div>
+                      <div><span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Staging Link:</span> <code style={{ color: '#0369A1' }}>{`${window.location.origin}/${viewingInst.subdomain}`}</code></div>
+                    </div>
+                  ) : (
+                    <code style={{ color: '#0369A1' }}>{getPortalUrl(viewingInst)}</code>
+                  )}
                 </div>
                 <div>
                   <strong style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem', textTransform: 'uppercase' }}>Subscription Plan</strong>
