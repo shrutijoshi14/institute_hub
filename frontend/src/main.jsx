@@ -43,7 +43,12 @@ const getTenantSubdomain = () => {
   const firstSegment = pathParts[1] ? pathParts[1].trim() : '';
   
   if (firstSegment) {
-    const reserved = ['login', 'enquiry', 'super-admin', 'register', 'tenant', 'settings'];
+    const reserved = [
+      'login', 'enquiry', 'super-admin', 'register', 'tenant', 'settings',
+      'enquiries', 'registrations', 'students', 'users', 'faculty', 'batches',
+      'syllabus', 'admin', 'notices', 'assignments', 'support', 'student',
+      'daily-tracker', 'parent', 'accountant', 'receptionist', 'library', 'transport'
+    ];
     if (firstSegment === 'tenant' && pathParts[2]) {
       sessionStorage.setItem('tenantSubdomain', pathParts[2]);
       return pathParts[2];
