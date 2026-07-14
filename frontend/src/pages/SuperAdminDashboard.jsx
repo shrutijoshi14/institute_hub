@@ -223,18 +223,19 @@ const SuperAdminDashboard = () => {
   }, [msg]);
 
   const getPortalUrl = (inst) => {
+    if (inst.custom_domain) {
+      let domain = inst.custom_domain.trim();
+      if (domain.startsWith('http://') || domain.startsWith('https://')) {
+        return domain;
+      }
+      return `https://${domain}`;
+    }
+
     const hostname = window.location.hostname;
     const isLocal = hostname.includes('localhost') || hostname.includes('127.0.0.1');
+    const frontendBase = isLocal ? 'http://localhost:5173' : window.location.origin;
 
-    if (isLocal) {
-      return `${window.location.origin}/tenant/${inst.subdomain}`;
-    }
-
-    if (inst.custom_domain) {
-      return `https://${inst.custom_domain}`;
-    }
-
-    return `${window.location.origin}/tenant/${inst.subdomain}`;
+    return `${frontendBase}/${inst.subdomain}`;
   };
 
   const handleCopyUrl = (url) => {

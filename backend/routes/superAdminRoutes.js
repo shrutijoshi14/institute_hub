@@ -354,7 +354,18 @@ router.post('/institutes', async (req, res) => {
         };
 
         const frontendBase = getFrontendBaseUrl(req);
-        const loginUrl = `${frontendBase}/tenant/${subdomain}`;
+        
+        let loginUrl = '';
+        if (custom_domain) {
+            let domain = custom_domain.trim();
+            if (domain.startsWith('http://') || domain.startsWith('https://')) {
+                loginUrl = domain;
+            } else {
+                loginUrl = `https://${domain}`;
+            }
+        } else {
+            loginUrl = `${frontendBase}/${subdomain}`;
+        }
 
         // Calculate Expiry Date based on Trial Days
         let calculatedExpiry = null;

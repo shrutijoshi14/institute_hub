@@ -38,11 +38,19 @@ const getTenantSubdomain = () => {
     return tenantParam;
   }
 
-  // 2. Check path /tenant/:subdomain
+  // 2. Check path segments (supporting both /tenant/:subdomain and direct /:subdomain)
   const pathParts = window.location.pathname.split('/');
-  if (pathParts[1] === 'tenant' && pathParts[2]) {
-    sessionStorage.setItem('tenantSubdomain', pathParts[2]);
-    return pathParts[2];
+  const firstSegment = pathParts[1] ? pathParts[1].trim() : '';
+  
+  if (firstSegment) {
+    const reserved = ['login', 'enquiry', 'super-admin', 'register', 'tenant', 'settings'];
+    if (firstSegment === 'tenant' && pathParts[2]) {
+      sessionStorage.setItem('tenantSubdomain', pathParts[2]);
+      return pathParts[2];
+    } else if (!reserved.includes(firstSegment.toLowerCase())) {
+      sessionStorage.setItem('tenantSubdomain', firstSegment);
+      return firstSegment;
+    }
   }
 
   // 3. Check hostname (for production subdomain, e.g. ambition.yourdomain.com)
