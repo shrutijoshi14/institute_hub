@@ -114,7 +114,11 @@ axios.interceptors.request.use(
         // Crossover Protection: If logged-in user's tenant subdomain doesn't match the current URL subdomain, force clear session.
         // (Only for non-super-admin users on dev/staging shared hosts where sessions can cross over)
         const isDevHost = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1') || window.location.hostname.includes('onrender.com');
-        if (isDevHost && parsed.role !== 'super-admin' && subdomain && parsed.tenantSubdomain && parsed.tenantSubdomain.toLowerCase() !== subdomain.toLowerCase()) {
+        const matchesSubdomain = subdomain && parsed.tenantSubdomain && (
+          subdomain.toLowerCase().includes(parsed.tenantSubdomain.toLowerCase()) ||
+          parsed.tenantSubdomain.toLowerCase().includes(subdomain.toLowerCase())
+        );
+        if (isDevHost && parsed.role !== 'super-admin' && subdomain && parsed.tenantSubdomain && !matchesSubdomain) {
           sessionStorage.clear();
           localStorage.removeItem('token');
           window.location.reload();
