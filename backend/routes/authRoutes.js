@@ -354,6 +354,11 @@ router.get('/users', async (req, res) => {
                 userJson.dob = userJson.Student.dob;
                 userJson.blood_group = userJson.Student.blood_group;
             }
+            if (userJson.Enrollments && userJson.Enrollments[0] && userJson.Enrollments[0].Course) {
+                userJson.board = userJson.Enrollments[0].Course.board;
+            } else {
+                userJson.board = 'Unassigned';
+            }
             return userJson;
         });
 

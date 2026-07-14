@@ -262,6 +262,7 @@ const StudentManagement = () => {
                 <th>ID</th>
                 <th>Name</th>
                 <th>Standard</th>
+                <th>Board</th>
                 <th>Email</th>
                 <th>Contact</th>
                 <th>Actions</th>
@@ -277,6 +278,11 @@ const StudentManagement = () => {
                       {student.standard || student.Enrollments?.[0]?.Course?.class_range || 'Unassigned'}
                     </span>
                   </td>
+                  <td>
+                    <span style={{ padding: '0.2rem 0.6rem', background: '#EFF6FF', color: '#1D4ED8', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                      {student.board || 'Unassigned'}
+                    </span>
+                  </td>
                   <td className="email-cell">{student.email}</td>
                   <td>{student.phone}</td>
                   <td>
@@ -289,7 +295,7 @@ const StudentManagement = () => {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No active students found.</td>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No active students found.</td>
                 </tr>
               )}
             </tbody>
