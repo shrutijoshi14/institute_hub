@@ -21,11 +21,11 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', uptime: process.uptime() });
 });
 
-// Connect Database
-connectDB();
-
 // Initialize Associations
 require('./models/associations');
+
+// Connect Database
+connectDB();
 
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));

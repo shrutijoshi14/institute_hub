@@ -746,6 +746,30 @@ const connectDB = async () => {
             console.log('Notice: User count query details:', countErr.message);
         }
 
+        // Ensure at least one super-admin user exists in the database (Self-Healing logic)
+        try {
+            const User = require('../models/User');
+            const superAdmin = await User.findOne({
+                where: { role: 'super-admin' },
+                bypassTenant: true
+            });
+            if (!superAdmin) {
+                console.log('⚠️ No Super Admin found in the database! Automatically creating default Super Admin...');
+                await User.create({
+                    name: 'Super Admin',
+                    email: 'superadmin@portal.com',
+                    password: 'superadmin',
+                    role: 'super-admin',
+                    phone: '9999999901',
+                    status: 'active',
+                    tenant_id: 1
+                });
+                console.log('✅ Default Super Admin account created: superadmin@portal.com / superadmin');
+            }
+        } catch (superAdminErr) {
+            console.error('Failed to verify/create default Super Admin:', superAdminErr.message);
+        }
+
     } catch (error) {
         console.error('Unable to connect to the database:', error);
         process.exit(1);

@@ -58,7 +58,10 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ msg: 'Invalid Credentials' });
         }
 
-        if (password !== user.password) {
+        const { comparePassword } = require('../utils/passwordHelper');
+        const isMatch = await comparePassword(password, user.password);
+
+        if (!isMatch) {
             console.log(`❌ Super Admin login failed: Password mismatch for [${email}]`);
             return res.status(400).json({ msg: 'Invalid Credentials' });
         }
