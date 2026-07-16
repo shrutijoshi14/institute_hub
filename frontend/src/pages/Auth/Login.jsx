@@ -144,16 +144,6 @@ const Login = () => {
     fetchSettings();
   }, []);
 
-  useEffect(() => {
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') {
-        setShowMockGoogleModal(false);
-      }
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, []);
-
   const getTenantSubdomain = () => {
     const params = new URLSearchParams(window.location.search);
     const tenantParam = params.get('tenant');
